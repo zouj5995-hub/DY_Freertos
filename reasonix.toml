@@ -1,0 +1,2 @@
+[permissions]
+allow = ["Bash(sed -n:*)", "Bash=grep -rn \"typedef struct\" -A 20 \"E:/项目/嵌入式软件/STM32H757XIHxL_Prj/DY_FreeRTOS/Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h757xx.h\" | grep -n \"USART_TypeDef\" ; echo \"=== USART_TypeDef block ===\"; awk '/^typedef struct$/{buf=\"\"} {buf=buf\"\\n\"$0} /\\} USART_TypeDef;/{print buf}' \"E:/项目/嵌入式软件/STM32H757XIHxL_Prj/DY_FreeRTOS/Drivers/CMSIS/Device/ST/STM32H7xx/Include/stm32h757xx.h\" | tail -30"]
