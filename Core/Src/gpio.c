@@ -47,22 +47,59 @@ void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(BK1_24V_GPIO_Port, BK1_24V_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, SONAR_24V_Pin|BD_24V_Pin|BK3_12V_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(IPC_24V_GPIO_Port, IPC_24V_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(BEEP_GPIO_Port, BEEP_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, BK2_12V_Pin|LED0_Pin|RADAR_12V_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : LED0_Pin */
-  GPIO_InitStruct.Pin = LED0_Pin;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(RADAR_12VB3_GPIO_Port, RADAR_12VB3_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : BK1_24V_Pin */
+  GPIO_InitStruct.Pin = BK1_24V_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED0_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(BK1_24V_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : SONAR_24V_Pin BD_24V_Pin BK3_12V_Pin BEEP_Pin */
+  GPIO_InitStruct.Pin = SONAR_24V_Pin|BD_24V_Pin|BK3_12V_Pin|BEEP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : IPC_24V_Pin */
+  GPIO_InitStruct.Pin = IPC_24V_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(IPC_24V_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BK2_12V_Pin LED0_Pin RADAR_12V_Pin */
+  GPIO_InitStruct.Pin = BK2_12V_Pin|LED0_Pin|RADAR_12V_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LED1_Pin */
   GPIO_InitStruct.Pin = LED1_Pin;
@@ -70,6 +107,13 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : RADAR_12VB3_Pin */
+  GPIO_InitStruct.Pin = RADAR_12VB3_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(RADAR_12VB3_GPIO_Port, &GPIO_InitStruct);
 
 }
 

@@ -41,3 +41,6 @@ dy_freertos\freertos.o: E:\软件\Keil_v5\ARM\ARMCC\Bin\..\include\stdio.h
 dy_freertos\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h
 dy_freertos\freertos.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
 dy_freertos\freertos.o: ../Core/Inc/usart.h
+dy_freertos\freertos.o: ..\APP\Tasks\tasks.h
+dy_freertos\freertos.o: ..\APP\Board\board.h
+dy_freertos\freertos.o: E:\软件\Keil_v5\ARM\ARMCC\Bin\..\include\stdbool.h

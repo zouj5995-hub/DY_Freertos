@@ -150,7 +150,7 @@ standard names. */
 /* USER CODE BEGIN Defines */
 #define configUSE_STATS_FORMATTING_FUNCTIONS  1
 #define configUSE_MALLOC_FAILED_HOOK 1
-#define configCHECK_FOR_STACK_OVERFLOW Option2
+#define configCHECK_FOR_STACK_OVERFLOW 2
 #define configUSE_EVENT_GROUPS 1
 #define configUSE_STREAM_BUFFERS 1
 

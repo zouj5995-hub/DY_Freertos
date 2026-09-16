@@ -58,10 +58,28 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define BK1_24V_Pin GPIO_PIN_3
+#define BK1_24V_GPIO_Port GPIOC
+#define SONAR_24V_Pin GPIO_PIN_0
+#define SONAR_24V_GPIO_Port GPIOA
+#define BD_24V_Pin GPIO_PIN_4
+#define BD_24V_GPIO_Port GPIOA
+#define IPC_24V_Pin GPIO_PIN_9
+#define IPC_24V_GPIO_Port GPIOE
+#define BK3_12V_Pin GPIO_PIN_11
+#define BK3_12V_GPIO_Port GPIOA
+#define BEEP_Pin GPIO_PIN_12
+#define BEEP_GPIO_Port GPIOA
+#define BK2_12V_Pin GPIO_PIN_3
+#define BK2_12V_GPIO_Port GPIOD
 #define LED0_Pin GPIO_PIN_4
 #define LED0_GPIO_Port GPIOD
+#define RADAR_12V_Pin GPIO_PIN_7
+#define RADAR_12V_GPIO_Port GPIOD
 #define LED1_Pin GPIO_PIN_13
 #define LED1_GPIO_Port GPIOG
+#define RADAR_12VB3_Pin GPIO_PIN_3
+#define RADAR_12VB3_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

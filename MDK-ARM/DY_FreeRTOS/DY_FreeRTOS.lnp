@@ -32,6 +32,9 @@
 "dy_freertos\cmsis_os2.o"
 "dy_freertos\heap_4.o"
 "dy_freertos\port.o"
+"dy_freertos\task_selftest.o"
+"dy_freertos\task_heartbeat.o"
+"dy_freertos\board.o"
 --strict --scatter "DY_FreeRTOS\DY_FreeRTOS.sct"
 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers

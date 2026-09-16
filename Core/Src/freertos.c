@@ -27,6 +27,8 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include "usart.h"
+#include "tasks.h"
+#include "board.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,8 +60,7 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-void TaskBlink(void *argument);
-void TaskPrint(void *argument);
+
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void *argument);
@@ -73,8 +74,7 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
   */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
-  xTaskCreate(TaskBlink, "blink", 128, NULL, 1, NULL);
-  xTaskCreate(TaskPrint, "printf", 512, NULL, 2,NULL);
+  xTaskCreate(TaskHeartbeat, TASK_HEARTBEAT_NAME, TASK_HEARTBEAT_STACK, NULL, TASK_HEARTBEAT_PRIO, NULL);
   //vTaskStartScheduler();
   /* USER CODE END Init */
 
@@ -130,25 +130,6 @@ void StartDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-void TaskBlink(void *argument)
-{
-  for(;;)
-  {
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
-    HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-  }
-}
-void TaskPrint(void *argument)
-{
-  static char task_buf[512];
-  for(;;)
-  {
-    vTaskList(task_buf);
-    printf("任务名\t状态\t优先级\t剩余栈\t序号\r\n%s\r\n",task_buf);
-    vTaskDelay(pdMS_TO_TICKS(5000));
-  }
 
-}
 /* USER CODE END Application */
 
