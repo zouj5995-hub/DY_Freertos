@@ -76,8 +76,10 @@ void TaskHeartbeat(void *argument)
         if ((xTaskGetTickCount() - last_list_tick) >= pdMS_TO_TICKS(TASKLIST_PERIOD_MS))
         {
             last_list_tick = xTaskGetTickCount();               // 记录本次时刻
-            vTaskList(task_buf);                                // 生成任务列表到缓冲区
+            vTaskList(task_buf);  
+            vTaskSuspendAll();                              // 生成任务列表到缓冲区
             printf("任务名\t状态\t优先级\t剩余栈\t序号\r\n%s\r\n", task_buf);  // 打印
+            xTaskResumeAll();
         }
     }
 }

@@ -75,7 +75,8 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
   xTaskCreate(TaskHeartbeat, TASK_HEARTBEAT_NAME, TASK_HEARTBEAT_STACK, NULL, TASK_HEARTBEAT_PRIO, NULL);
-  //vTaskStartScheduler();
+  xTaskCreate(TaskMonitor, TASK_MONITOR_NAME, TASK_MONITOR_STACK, NULL, TASK_MONITOR_PRIO, NULL);
+
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */

@@ -38,6 +38,8 @@ dy_freertos\cmsis_os2.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_exti.
 dy_freertos\cmsis_os2.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma.h
 dy_freertos\cmsis_os2.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma_ex.h
 dy_freertos\cmsis_os2.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_cortex.h
+dy_freertos\cmsis_os2.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_adc.h
+dy_freertos\cmsis_os2.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_adc_ex.h
 dy_freertos\cmsis_os2.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash.h
 dy_freertos\cmsis_os2.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h
 dy_freertos\cmsis_os2.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h

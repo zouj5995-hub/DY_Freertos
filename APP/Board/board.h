@@ -29,6 +29,20 @@ typedef enum
     DEV_CNT             // 设备总数
 } dev_id_t;
 
+/*===============模拟量通道映射===============*/
+#define BOARD_ADC_CH_VOLTAGE ADC_CHANNEL_14     //PC4  电池电压
+#define BOARD_ADC_CH_TEMP_ENV ADC_CHANNEL_11    //PC1   环境温度（NTC1）
+#define BOARD_ADC_CH_TEMP_IPC ADC_CHANNEL_12    //PC2   工控机散热鳍片温度（NTC2）
+#define BOARD_ADC_CH_TEMP_PCB ADC_CHANNEL_8    //PB0   电源板温度（ADCT1）
+/*===============模拟量换算参数===============*/
+#define BOARD_ADC_VREF           3.29f       // ADC 参考电压（V）
+#define BOARD_ADC_FULLSCALE      4095.0f    // 12 位满量程
+#define BOARD_VOLT_DIV_COEFF     8.6923f    // 电池电压分压校准系数
+#define BOARD_NTC_R0             10000.0f   // NTC 在 25℃ 时的阻值（Ω）
+#define BOARD_NTC_B              3950.0f    // NTC 的 B 值
+#define BOARD_NTC_T0_K           298.15f    // 25℃ 对应的开氏温度
+
+
 
 void board_init(void);//把所有设备置于“断电”状态
 

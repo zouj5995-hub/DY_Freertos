@@ -15,19 +15,24 @@
 /* Exported constants --------------------------------------------------------*/
 
 #define TASK_HEARTBEAT_NAME    "heartbeat"   // 任务名（vTaskList 里显示，最长 16 字符）
-#define TASK_HEARTBEAT_STACK   192           // 192 字 = 768 字节
+#define TASK_HEARTBEAT_STACK   128           // 128 字 = 512 字节
 #define TASK_HEARTBEAT_PRIO    1             // 优先级：最低（只是闪灯）
 
 #define TASK_SELFTEST_NAME     "selftest"    // 任务名
 #define TASK_SELFTEST_STACK    256           // 256 字 = 1KB（任务里用了 printf，要给足）
 #define TASK_SELFTEST_PRIO     2             // 优先级
 
+#define TASK_MONITOR_NAME     "monitor"    // 任务名
+#define TASK_MONITOR_STACK    256           // 256 字 = 1KB（任务里用了 printf，要给足）
+#define TASK_MONITOR_PRIO     1             // 优先级
 /* Exported functions prototypes ---------------------------------------------*/
 
 
 void TaskHeartbeat(void *argument);//心跳任务：翻转 LED0，并每 5 秒打印一次任务列表
 
 //void TaskSelfTest(void *argument);//板级自检任务
+
+void TaskMonitor(void *argument); // 监控任务主体：每秒采集一次并打印
 
 #endif /* __TASKS_H */
 

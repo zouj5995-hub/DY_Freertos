@@ -22,6 +22,8 @@ dy_freertos\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_exti.h
 dy_freertos\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma.h
 dy_freertos\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma_ex.h
 dy_freertos\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_cortex.h
+dy_freertos\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_adc.h
+dy_freertos\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_adc_ex.h
 dy_freertos\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash.h
 dy_freertos\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h
 dy_freertos\main.o: ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h
@@ -40,5 +42,6 @@ dy_freertos\main.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/mpu_wrapp
 dy_freertos\main.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/task.h
 dy_freertos\main.o: ../Middlewares/Third_Party/FreeRTOS/Source/include/list.h
 dy_freertos\main.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h
+dy_freertos\main.o: ../Core/Inc/adc.h
 dy_freertos\main.o: ../Core/Inc/usart.h
 dy_freertos\main.o: ../Core/Inc/gpio.h

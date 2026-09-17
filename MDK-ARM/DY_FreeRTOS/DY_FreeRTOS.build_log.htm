@@ -22,20 +22,25 @@ Dialog DLL:      TCM.DLL V1.53.0.0
  
 <h2>Project:</h2>
 E:\ÏîÄ¿\Ç¶ÈëÊ½Èí¼ş\STM32H757XIHxL_Prj\DY_FreeRTOS\MDK-ARM\DY_FreeRTOS.uvprojx
-Project File Date:  09/16/2026
+Project File Date:  09/17/2026
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'E:\Èí¼ş\Keil_v5\ARM\ARMCC\Bin'
 Build target 'DY_FreeRTOS'
 compiling task_heartbeat.c...
-..\APP\Tasks\task_heartbeat.c(52): warning:  #1-D: last line of file ends without a newline
+..\APP\Tasks\task_heartbeat.c(43): warning:  #870-D: invalid multibyte character sequence
+          printf("ä¸Šæ¬¡å¤ä½ï¼šè½¯ä»¶å¤ä½?/é‡å¯å‘½ä»¤\r\n");
+..\APP\Tasks\task_heartbeat.c(51): warning:  #870-D: invalid multibyte character sequence
+          printf("ä¸Šæ¬¡å¤ä½ï¼šå…¶ä»?/æœªçŸ¥\r\n");
+..\APP\Tasks\task_heartbeat.c(59): warning:  #870-D: invalid multibyte character sequence
+      printf("å‰©ä½™å ? = %u å­—èŠ‚\r\n", (unsigned) xPortGetFreeHeapSize());
+..\APP\Tasks\task_heartbeat.c(85): warning:  #1-D: last line of file ends without a newline
   }
-..\APP\Tasks\task_heartbeat.c: 1 warning, 0 errors
-compiling freertos.c...
+..\APP\Tasks\task_heartbeat.c: 4 warnings, 0 errors
 linking...
-Program Size: Code=12964 RO-data=428 RW-data=152 ZI-data=8792  
+Program Size: Code=18196 RO-data=576 RW-data=152 ZI-data=16008  
 FromELF: creating hex file...
-"DY_FreeRTOS\DY_FreeRTOS.axf" - 0 Error(s), 1 Warning(s).
+"DY_FreeRTOS\DY_FreeRTOS.axf" - 0 Error(s), 4 Warning(s).
 
 <h2>Software Packages used:</h2>
 
@@ -59,7 +64,7 @@ Package Vendor: Keil
 
    * Component: ARM::CMSIS:CORE:5.5.0
       Include file:  CMSIS\Core\Include\tz_context.h
-Build Time Elapsed:  00:00:01
+Build Time Elapsed:  00:00:02
 </pre>
 </body>
 </html>

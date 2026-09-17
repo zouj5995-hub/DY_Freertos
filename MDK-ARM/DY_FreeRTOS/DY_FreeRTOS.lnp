@@ -3,6 +3,7 @@
 "dy_freertos\main.o"
 "dy_freertos\gpio.o"
 "dy_freertos\freertos.o"
+"dy_freertos\adc.o"
 "dy_freertos\usart.o"
 "dy_freertos\stm32f1xx_it.o"
 "dy_freertos\stm32f1xx_hal_msp.o"
@@ -10,6 +11,8 @@
 "dy_freertos\stm32f1xx_hal_gpio_ex.o"
 "dy_freertos\stm32f1xx_hal_tim.o"
 "dy_freertos\stm32f1xx_hal_tim_ex.o"
+"dy_freertos\stm32f1xx_hal_adc.o"
+"dy_freertos\stm32f1xx_hal_adc_ex.o"
 "dy_freertos\stm32f1xx_hal.o"
 "dy_freertos\stm32f1xx_hal_rcc.o"
 "dy_freertos\stm32f1xx_hal_rcc_ex.o"
@@ -34,7 +37,9 @@
 "dy_freertos\port.o"
 "dy_freertos\task_selftest.o"
 "dy_freertos\task_heartbeat.o"
+"dy_freertos\task_monitor.o"
 "dy_freertos\board.o"
+"dy_freertos\sense.o"
 --strict --scatter "DY_FreeRTOS\DY_FreeRTOS.sct"
 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers
