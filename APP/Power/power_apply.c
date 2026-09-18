@@ -10,6 +10,8 @@
 #include "power_apply.h"
 #include "board.h"
 #include "log.h"
+#include "uart485.h"
+#include "usart.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include <stddef.h>
@@ -46,15 +48,29 @@ static void power_apply_pc(bool target_on);     // 工控机输出处理（含�
  * 功  能：给工控机发送关机命令
  * 参  数：无
  * 返回值：无
- * 说  明：命令内容为 $OFF\nCC60$OVER（经串口3 输出）；
- *         串口3 的 485 方向控制尚未接入，当前先打印占位，下一步替换为真实发送
+ * 说  明：命令内容为 $OFF\nCC60$OVER（经串口3 输出），
+ *         方向脚由 485 驱动自动切换，发完立即切回接收
  ******************************************************************************/
 static void power_send_pc_off_cmd(void)
 {
     /*==============================
-     *  #1. 打印关机命令（待接入串口3 发送）
+     *  #1. 关机命令内容：$OFF\nCC60$OVER（12 字节，沿用旧版本格式）
      *==============================*/
-    LOG_WARNING("工控机关机命令：$OFF\\nCC60$OVER（串口3 发送待接入）");
+    static const uint8_t s_off_cmd[12] = {
+        0x24U, 0x4FU, 0x46U, 0x46U, 0x0AU, 0xCCU, 0x60U, 0x24U, 0x4FU, 0x56U, 0x45U, 0x52U
+    };
+
+    /*==============================
+     *  #2. 通过串口3（485 半双工）发出
+     *==============================*/
+    if (uart485_send(&huart3, s_off_cmd, (uint16_t)sizeof(s_off_cmd)))
+    {
+        LOG_INFO("工控机关机命令已通过串口3 发出");
+    }
+    else
+    {
+        LOG_ERROR("工控机关机命令发送失败（串口3）");
+    }
 }
 
 /*******************************************************************************
