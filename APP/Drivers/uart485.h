@@ -27,7 +27,10 @@ bool     uart485_send(UART_HandleTypeDef *huart, const uint8_t *data, uint16_t l
 void     uart485_start_rx(void);                                                  // 启动 USART2 的单字节接收中断
 void     uart485_rx_byte_isr(UART_HandleTypeDef *huart);                          // 单字节接收完成回调（中断内调用）
 void     uart485_idle_isr(UART_HandleTypeDef *huart);                             // 总线空闲回调（中断内调用）
-bool     uart485_rx_ready(void);                                                  // 查询是否已收到完整帧
+bool     uart485_rx_ready(void);
+uint32_t uart485_get_rx_bytes(void);                                             // 【诊断】累计收到字节数
+uint32_t uart485_get_idle_count(void);                                           // 【诊断】总线空闲中断次数
+uint32_t uart485_get_tx_count(void);                                             // 【诊断】累计发送帧数                                                  // 查询是否已收到完整帧
 uint16_t uart485_rx_take(uint8_t *dst, uint16_t max_len);                          // 取走完整帧（取走后自动复位）
 
 #ifdef __cplusplus

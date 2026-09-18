@@ -36,6 +36,7 @@ static const board_out_t out_table[DEV_CNT] =
 /* Private functions prototypes ----------------------------------------------*/
 static GPIO_PinState board_to_level(const board_out_t *o, bool on);
 static void board_main12v_init(void);                              // 12V 总控引脚初始化并保持接通
+static void board_485_enable_init(void);                            // 使能两片 SP3485 收发器（低电平有效）
 
 /* Private functions ---------------------------------------------------------*/
 
@@ -61,6 +62,23 @@ static GPIO_PinState board_to_level(const board_out_t *o, bool on)
  *         否则雷达/摄像头/备用二/备用三永远无法上电；
  *         板上已取消总控时把 BOARD_MAIN12V_ENABLE 置 0 即可跳过
  ******************************************************************************/
+
+/*******************************************************************************
+ * 函数名：board_485_enable_init
+ * 功  能：使能两片 SP3485 收发器
+ * 参  数：无
+ * 返回值：无
+ * 说  明：SP3485 的使能脚为低电平有效，不拉低则收发器不供电，
+ *         表现为主控与 485 总线完全隔离（收发都没有任何反应）
+ ******************************************************************************/
+static void board_485_enable_init(void)
+{
+    /*==============================
+     *  #1. 拉低两路使能脚，给收发器供电
+     *==============================*/
+    HAL_GPIO_WritePin(BOARD_U2_EN_PORT, BOARD_U2_EN_PIN, BOARD_485_EN_LEVEL);   // USART2 侧
+    HAL_GPIO_WritePin(BOARD_U3_EN_PORT, BOARD_U3_EN_PIN, BOARD_485_EN_LEVEL);   // USART3 侧
+}
 static void board_main12v_init(void)
 {
     GPIO_InitTypeDef init = {0};
@@ -99,6 +117,8 @@ void board_init(void)
     {
         board_power_set((dev_id_t)i, false);            // false = 断电
     }
+
+    board_485_enable_init();                            // 使能两片 SP3485 收发器（否则 485 完全不通）
 
 #if (BOARD_MAIN12V_ENABLE == 1)
     board_main12v_init();                               // 12V 总控保持接通

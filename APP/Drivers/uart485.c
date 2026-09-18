@@ -26,6 +26,9 @@ static uint8_t           s_rx_buf[UART485_RX_BUF_SIZE];      // 接收缓冲区
 static volatile uint16_t s_rx_len     = 0U;                 // 已接收字节数
 static volatile bool     s_frame_ready = false;             // 是否收到完整帧
 static SemaphoreHandle_t s_tx_mutex   = NULL;               // 发送互斥量（多任务排队）
+static volatile uint32_t s_stat_rx_bytes = 0U;           // 【诊断】收到字节数
+static volatile uint32_t s_stat_idle_cnt = 0U;           // 【诊断】总线空闲次数
+static volatile uint32_t s_stat_tx_cnt   = 0U;           // 【诊断】发送帧数
 
 /* Private functions prototypes ----------------------------------------------*/
 static void uart485_set_dir(UART_HandleTypeDef *huart, bool tx);    // 设置 485 方向脚
@@ -155,6 +158,7 @@ bool uart485_send(UART_HandleTypeDef *huart, const uint8_t *data, uint16_t len)
             }
         }
 
+        s_stat_tx_cnt++;                                    // 发送计数
         ok = true;                                          // 发送成功
     }
     else
@@ -212,6 +216,7 @@ void uart485_rx_byte_isr(UART_HandleTypeDef *huart)
         return;
     }
 
+    s_stat_rx_bytes++;                                      // 收到一个字节
     if (s_rx_len < (UART485_RX_BUF_SIZE - 1U))              // 留一个字节给结束符
     {
         s_rx_len++;                                         // 指向下一个位置
@@ -250,6 +255,7 @@ void uart485_idle_isr(UART_HandleTypeDef *huart)
     /*==============================
      *  #2. 标记收到完整帧（由通信任务取走）
      *==============================*/
+    s_stat_idle_cnt++;                                      // 空闲中断触发
     if (s_rx_len > 0U)                                      // 有数据才算一帧
     {
         s_frame_ready = true;                               // 置完成标志
@@ -314,4 +320,37 @@ uint16_t uart485_rx_take(uint8_t *dst, uint16_t max_len)
     uart485_start_rx();                                     // 重新开始收下一帧
 
     return len;                                             // 返回帧长
+}
+
+/*******************************************************************************
+ * 函数名：uart485_get_rx_bytes
+ * 功  能：读取累计收到的字节数（诊断用）
+ * 参  数：无
+ * 返回值：累计字节数
+ ******************************************************************************/
+uint32_t uart485_get_rx_bytes(void)
+{
+    return s_stat_rx_bytes;                                 // 收到字节总数
+}
+
+/*******************************************************************************
+ * 函数名：uart485_get_idle_count
+ * 功  能：读取总线空闲中断触发次数（诊断用）
+ * 参  数：无
+ * 返回值：触发次数
+ ******************************************************************************/
+uint32_t uart485_get_idle_count(void)
+{
+    return s_stat_idle_cnt;                                 // 空闲中断次数
+}
+
+/*******************************************************************************
+ * 函数名：uart485_get_tx_count
+ * 功  能：读取发送帧数（诊断用）
+ * 参  数：无
+ * 返回值：发送帧数
+ ******************************************************************************/
+uint32_t uart485_get_tx_count(void)
+{
+    return s_stat_tx_cnt;                                   // 发送帧总数
 }

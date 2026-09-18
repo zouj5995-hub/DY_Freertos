@@ -42,6 +42,13 @@ typedef enum
 #define BOARD_EEPROM_PAGE_SIZE  64U         // 页大小（字节），AT24C256 为 64
 #define BOARD_EEPROM_WRITE_MS   5U          // 写周期（毫秒）
 
+/* ===== SP3485 收发器使能脚（低电平有效：给收发器供电） ===== */
+#define BOARD_U2_EN_PORT         GPIOA                    // USART2 收发器使能端口
+#define BOARD_U2_EN_PIN          GPIO_PIN_1               // USART2 收发器使能（PA1）
+#define BOARD_U3_EN_PORT         GPIOG                    // USART3 收发器使能端口
+#define BOARD_U3_EN_PIN          GPIO_PIN_1               // USART3 收发器使能（PG1）
+#define BOARD_485_EN_LEVEL       GPIO_PIN_RESET           // 使能有效电平（低电平使能）
+
 /* ===== RS485 方向控制引脚（发送时切向、发完切回） ===== */
 #define BOARD_U2_DIR_PORT        GPIOF        // USART2 方向脚端口（协议链路）
 #define BOARD_U2_DIR_PIN         GPIO_PIN_12  // USART2 方向脚（PF12）

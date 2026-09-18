@@ -8,6 +8,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "tasks.h"
 #include "uart485.h"
+#include "usart.h"
 #include "protocol.h"
 #include "log.h"
 #include "FreeRTOS.h"
@@ -32,10 +33,28 @@ void TaskComm(void *argument)
     uint16_t   len;
     TickType_t last_wake_tick;
     TickType_t restart_tick;
+    TickType_t stat_tick;                               // 诊断统计打印节拍
     bool       restart_waiting;
 
     last_wake_tick = xTaskGetTickCount();               // 记录周期起点
     restart_waiting = false;                            // 尚未收到重启请求
+    stat_tick       = xTaskGetTickCount();
+
+    /*==============================
+     *  #0. 上电自检：主动发一帧，验证 485 发送方向是否正常
+     *==============================*/
+    {
+        static const uint8_t test_msg[] = "DY-PWR-485-TEST\r\n";
+
+        if (uart485_send(&huart2, test_msg, (uint16_t)(sizeof(test_msg) - 1U)))
+        {
+            LOG_INFO("已发送 485 自检帧，请确认 485 侧是否收到 DY-PWR-485-TEST");
+        }
+        else
+        {
+            LOG_ERROR("485 自检帧发送失败");
+        }
+    }
     restart_tick    = 0;
 
     /*==============================
@@ -59,6 +78,19 @@ void TaskComm(void *argument)
         /*==============================
          *  #3. 定时上报节拍检查（每小时第 53 分）
          *==============================*/
+        /*==============================
+         *  #3.1 每 5 秒打印 485 收发统计（现场排查用）
+         *==============================*/
+        if ((xTaskGetTickCount() - stat_tick) >= pdMS_TO_TICKS(5000))
+        {
+            stat_tick = xTaskGetTickCount();
+            LOG_INFO("485统计 收字节=%lu 空闲=%lu 发送=%lu 帧就绪=%u",
+                     (unsigned long)uart485_get_rx_bytes(),
+                     (unsigned long)uart485_get_idle_count(),
+                     (unsigned long)uart485_get_tx_count(),
+                     (unsigned)(uart485_rx_ready() ? 1U : 0U));
+        }
+
         protocol_report_check();
 
         /*==============================
