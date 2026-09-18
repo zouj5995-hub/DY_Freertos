@@ -57,6 +57,22 @@ void TaskComm(void *argument)
             LOG_ERROR("485 自检帧发送失败");
         }
     }
+
+    /*==============================
+     *  #0.2 上电自检：串口3（工控机链路）发一帧，验证这一路是否通
+     *==============================*/
+    {
+        static const uint8_t test_msg3[] = "DY-PC485-TEST\r\n";
+
+        if (uart485_send(&huart3, test_msg3, (uint16_t)(sizeof(test_msg3) - 1U)))
+        {
+            LOG_INFO("已发送串口3 自检帧，请在工控机链路（U3）确认是否收到 DY-PC485-TEST");
+        }
+        else
+        {
+            LOG_ERROR("串口3 自检帧发送失败");
+        }
+    }
     restart_tick    = 0;
 
     /*==============================
