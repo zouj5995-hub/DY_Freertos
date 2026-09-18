@@ -192,6 +192,7 @@ void uart485_start_rx(void)
     s_frame_ready = false;                                  // 清空完成标志
 
     (void)HAL_UART_Receive_IT(&huart2, &s_rx_buf[s_rx_len], 1U);   // 每收 1 字节进一次中断
+    __HAL_UART_ENABLE_IT(&huart2, UART_IT_IDLE);           // 【关键】打开总线空闲中断，否则永远判不出帧结束
 }
 
 /*******************************************************************************

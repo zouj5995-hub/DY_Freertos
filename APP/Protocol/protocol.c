@@ -552,7 +552,7 @@ void protocol_handle_frame(const uint8_t *buf, uint16_t len)
         return;                                             // 太短不可能是一帧
     }
 
-    LOG_DEBUG("收到帧：%s", (const char *)buf);
+    LOG_INFO("收到帧：%u 字节，头部=%.8s", (unsigned)len, (const char *)buf);   // 只打印长度与协议头
 
     /*==============================
      *  #2. 遍历协议表匹配协议头

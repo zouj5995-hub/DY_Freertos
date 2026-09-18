@@ -13,7 +13,7 @@
 #include "time_service.h"
 /* Private define ------------------------------------------------------------*/
 #define LED_TOGGLE_PERIOD_MS   500      // LED 翻转周期（毫秒）
-#define TASKLIST_PERIOD_MS     5000     // 打印任务列表周期（毫秒）
+#define TASKLIST_PERIOD_MS     60000    // 打印任务列表周期（毫秒，调试用，平时不必频繁）
 
 /* Exported functions --------------------------------------------------------*/
 
