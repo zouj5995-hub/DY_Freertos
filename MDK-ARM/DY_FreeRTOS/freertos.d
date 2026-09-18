@@ -46,3 +46,6 @@ dy_freertos\freertos.o: ../Core/Inc/usart.h
 dy_freertos\freertos.o: ../APP/Tasks/tasks.h
 dy_freertos\freertos.o: ../APP/Board/board.h
 dy_freertos\freertos.o: E:\软件\Keil_v5\ARM\ARMCC\Bin\..\include\stdbool.h
+dy_freertos\freertos.o: ../APP/Drivers/sense.h
+dy_freertos\freertos.o: ..\APP\Services\log.h
+dy_freertos\freertos.o: E:\软件\Keil_v5\ARM\ARMCC\Bin\..\include\string.h

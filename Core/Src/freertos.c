@@ -29,6 +29,11 @@
 #include "usart.h"
 #include "tasks.h"
 #include "board.h"
+#include "sense.h"
+#include "log.h"
+/* USER CODE BEGIN Includes */
+                     // 日志服务
+/* USER CODE END Includes */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -76,7 +81,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
   xTaskCreate(TaskHeartbeat, TASK_HEARTBEAT_NAME, TASK_HEARTBEAT_STACK, NULL, TASK_HEARTBEAT_PRIO, NULL);
   xTaskCreate(TaskMonitor, TASK_MONITOR_NAME, TASK_MONITOR_STACK, NULL, TASK_MONITOR_PRIO, NULL);
-
+  xTaskCreate(TaskLog, TASK_LOG_NAME, TASK_LOG_STACK, NULL, TASK_LOG_PRIO, NULL);
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -119,6 +124,7 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+  vTaskSuspend(NULL); 
   /* Infinite loop */
   for(;;)
   {

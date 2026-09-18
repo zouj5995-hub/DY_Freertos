@@ -27,20 +27,36 @@ Project File Date:  09/17/2026
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'E:\����\Keil_v5\ARM\ARMCC\Bin'
 Build target 'DY_FreeRTOS'
+compiling task_monitor.c...
+../APP/Drivers/sense.h(41): warning:  #1-D: last line of file ends without a newline
+  #endif /* __SENSE_H */
+..\APP\Services\log.h(77): warning:  #1-D: last line of file ends without a newline
+  #endif /* __LOG_H */
+..\APP\Tasks\task_monitor.c: 2 warnings, 0 errors
 compiling task_heartbeat.c...
+..\APP\Services\log.h(77): warning:  #1-D: last line of file ends without a newline
+  #endif /* __LOG_H */
 ..\APP\Tasks\task_heartbeat.c(43): warning:  #870-D: invalid multibyte character sequence
-          printf("上次复位：软件复�?/重启命令\r\n");
+          LOG_INFO("上次复位：软件复�?/重启命令\r\n");
 ..\APP\Tasks\task_heartbeat.c(51): warning:  #870-D: invalid multibyte character sequence
-          printf("上次复位：其�?/未知\r\n");
+          LOG_INFO("上次复位：其�?/未知\r\n");
 ..\APP\Tasks\task_heartbeat.c(59): warning:  #870-D: invalid multibyte character sequence
-      printf("剩余�? = %u 字节\r\n", (unsigned) xPortGetFreeHeapSize());
-..\APP\Tasks\task_heartbeat.c(85): warning:  #1-D: last line of file ends without a newline
+      LOG_INFO("剩余�? = %u 字节\r\n", (unsigned) xPortGetFreeHeapSize());
+..\APP\Tasks\task_heartbeat.c(81): warning:  #870-D: invalid multibyte character sequence
+              LOG_INFO("剩余�? = %u 字节\r\n", (unsigned) xPortGetFreeHeapSize());
+..\APP\Tasks\task_heartbeat.c(84): warning:  #1-D: last line of file ends without a newline
   }
-..\APP\Tasks\task_heartbeat.c: 4 warnings, 0 errors
+..\APP\Tasks\task_heartbeat.c: 6 warnings, 0 errors
+compiling freertos.c...
+../APP/Drivers/sense.h(41): warning:  #1-D: last line of file ends without a newline
+  #endif /* __SENSE_H */
+..\APP\Services\log.h(77): warning:  #1-D: last line of file ends without a newline
+  #endif /* __LOG_H */
+../Core/Src/freertos.c: 2 warnings, 0 errors
 linking...
-Program Size: Code=18196 RO-data=576 RW-data=152 ZI-data=16008  
+Program Size: Code=26064 RO-data=1300 RW-data=164 ZI-data=16004  
 FromELF: creating hex file...
-"DY_FreeRTOS\DY_FreeRTOS.axf" - 0 Error(s), 4 Warning(s).
+"DY_FreeRTOS\DY_FreeRTOS.axf" - 0 Error(s), 10 Warning(s).
 
 <h2>Software Packages used:</h2>
 

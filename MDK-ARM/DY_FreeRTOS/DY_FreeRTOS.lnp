@@ -40,6 +40,7 @@
 "dy_freertos\task_monitor.o"
 "dy_freertos\board.o"
 "dy_freertos\sense.o"
+"dy_freertos\log.o"
 --strict --scatter "DY_FreeRTOS\DY_FreeRTOS.sct"
 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers

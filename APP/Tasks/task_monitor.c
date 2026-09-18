@@ -8,6 +8,7 @@
 #include "tasks.h"
 #include "sense.h"
 #include <stdio.h>
+#include "log.h"
 
 #define MONITOR_PERIOD_MS 1000  //采集周期（毫秒）
 
@@ -21,6 +22,7 @@
  ******************************************************************************/
 void TaskMonitor(void *argument)
 {
+    vTaskDelay(pdMS_TO_TICKS(5000));
     sense_data_t data;
 
     /*==============================
@@ -38,13 +40,11 @@ void TaskMonitor(void *argument)
          *   #3. 打印结果
          *       注意：Keil 的 MicroLIB 不支持 %f，所以把浮点数放大 10 倍用整数打印
          =========================================================================*/
-        vTaskSuspendAll();
-        printf("[monitor]\t电压=%u.%uV\t环温=%d.%dC\t仓温=%d.%dC\t板温=%d.%dC\r\n",
+        LOG_INFO("\r\n[monitor] \t电压=%u.%uV \t环温=%d.%dC \t舱温=%d.%dC \t板温=%d.%dC\r\n",
         (unsigned)(data.voltage * 10) / 10, (unsigned)(data.voltage * 10) % 10,
         (int)(data.temp_env * 10) / 10, (int)(data.temp_env * 10) % 10,
         (int)(data.temp_ipc * 10) / 10, (int)(data.temp_ipc * 10) % 10,
         (int)(data.temp_pcb * 10) / 10, (int)(data.temp_pcb * 10) % 10);
-        xTaskResumeAll();
         /*==========================
          *   #4. 睡 1 秒（让出 CPU）
          ===========================*/

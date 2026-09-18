@@ -25,7 +25,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "board.h"
+#include "log.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -78,7 +79,11 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+   /*==============================
+   *  #1. 板级与日志服务初始化（必须早于启动调度器）
+   *==============================*/
+  board_init();
+  log_init();
   /* USER CODE END Init */
 
   /* Configure the system clock */

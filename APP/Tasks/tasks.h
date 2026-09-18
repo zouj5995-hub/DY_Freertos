@@ -15,16 +15,20 @@
 /* Exported constants --------------------------------------------------------*/
 
 #define TASK_HEARTBEAT_NAME    "heartbeat"   // 任务名（vTaskList 里显示，最长 16 字符）
-#define TASK_HEARTBEAT_STACK   128           // 128 字 = 512 字节
+#define TASK_HEARTBEAT_STACK   256           // 128 字 = 512 字节
 #define TASK_HEARTBEAT_PRIO    1             // 优先级：最低（只是闪灯）
 
 #define TASK_SELFTEST_NAME     "selftest"    // 任务名
-#define TASK_SELFTEST_STACK    256           // 256 字 = 1KB（任务里用了 printf，要给足）
+#define TASK_SELFTEST_STACK    256           // 256 字 = 1KB
 #define TASK_SELFTEST_PRIO     2             // 优先级
 
-#define TASK_MONITOR_NAME     "monitor"    // 任务名
-#define TASK_MONITOR_STACK    256           // 256 字 = 1KB（任务里用了 printf，要给足）
+#define TASK_MONITOR_NAME     "monitor"     // 任务名
+#define TASK_MONITOR_STACK    256           // 256 字 = 1KB
 #define TASK_MONITOR_PRIO     1             // 优先级
+
+#define TASK_LOG_NAME     "log"             // 任务名
+#define TASK_LOG_STACK    256               // 256 字 = 1KB 
+#define TASK_LOG_PRIO     1                 // 优先级
 /* Exported functions prototypes ---------------------------------------------*/
 
 

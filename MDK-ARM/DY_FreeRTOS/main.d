@@ -45,3 +45,7 @@ dy_freertos\main.o: ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cms
 dy_freertos\main.o: ../Core/Inc/adc.h
 dy_freertos\main.o: ../Core/Inc/usart.h
 dy_freertos\main.o: ../Core/Inc/gpio.h
+dy_freertos\main.o: ../APP/Board/board.h
+dy_freertos\main.o: E:\软件\Keil_v5\ARM\ARMCC\Bin\..\include\stdbool.h
+dy_freertos\main.o: ..\APP\Services\log.h
+dy_freertos\main.o: E:\软件\Keil_v5\ARM\ARMCC\Bin\..\include\string.h

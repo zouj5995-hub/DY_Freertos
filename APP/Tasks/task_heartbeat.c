@@ -9,7 +9,7 @@
 #include "tasks.h"
 #include "main.h"
 #include <stdio.h>
-
+#include "log.h"
 /* Private define ------------------------------------------------------------*/
 #define LED_TOGGLE_PERIOD_MS   500      // LED 翻转周期（毫秒）
 #define TASKLIST_PERIOD_MS     5000     // 打印任务列表周期（毫秒）
@@ -31,32 +31,32 @@ void TaskHeartbeat(void *argument)
     /*************
      *   #1. 开机只做一次：打印系统基础信息
      *************/
-    printf("\r\n===== 系统启动信息 =====\r\n");
+    LOG_INFO("\r\n===== 系统启动信息 =====\r\n");
 
     /* #1.1 上次复位原因（读完必须清零，否则下次开机会重复上报） */
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST) != RESET)          // 看门狗复位
     {
-        printf("上次复位：独立看门狗（说明程序曾卡死过）\r\n");
+        LOG_INFO("上次复位：独立看门狗（说明程序曾卡死过）\r\n");
     }
     else if (__HAL_RCC_GET_FLAG(RCC_FLAG_SFTRST) != RESET)      // 软件复位
     {
-        printf("上次复位：软件复位/重启命令\r\n");
+        LOG_INFO("上次复位：软件复位/重启命令\r\n");
     }
     else if (__HAL_RCC_GET_FLAG(RCC_FLAG_PORRST) != RESET)      // 上电/掉电复位
     {
-        printf("上次复位：上电或掉电（正常）\r\n");
+        LOG_INFO("上次复位：上电或掉电（正常）\r\n");
     }
     else                                                        // 其他
     {
-        printf("上次复位：其他/未知\r\n");
+        LOG_INFO("上次复位：其他/未知\r\n");
     }
     __HAL_RCC_CLEAR_RESET_FLAGS();                              // 清零复位标志
 
     /* #1.2 主频是否符合预期 */
-    printf("HCLK = %lu Hz\r\n", (unsigned long)HAL_RCC_GetHCLKFreq());
+    LOG_INFO("HCLK = %lu Hz\r\n", (unsigned long)HAL_RCC_GetHCLKFreq());
 
     /* #1.3 剩余堆（验证 heap 大小配置生效） */
-    printf("剩余堆 = %u 字节\r\n", (unsigned) xPortGetFreeHeapSize());
+    LOG_INFO("剩余堆 = %u 字节\r\n", (unsigned) xPortGetFreeHeapSize());
 
 
     /*************
@@ -76,10 +76,9 @@ void TaskHeartbeat(void *argument)
         if ((xTaskGetTickCount() - last_list_tick) >= pdMS_TO_TICKS(TASKLIST_PERIOD_MS))
         {
             last_list_tick = xTaskGetTickCount();               // 记录本次时刻
-            vTaskList(task_buf);  
-            vTaskSuspendAll();                              // 生成任务列表到缓冲区
-            printf("任务名\t状态\t优先级\t剩余栈\t序号\r\n%s\r\n", task_buf);  // 打印
-            xTaskResumeAll();
+            vTaskList(task_buf);                                 // 生成任务列表到缓冲区           
+            LOG_INFO("\r\n任务\t状态\t优先级\t剩余栈\t序号\r\n%s\r\n", task_buf);  // 打印
+            LOG_INFO("剩余堆 = %u 字节\r\n", (unsigned) xPortGetFreeHeapSize());
         }
     }
 }
