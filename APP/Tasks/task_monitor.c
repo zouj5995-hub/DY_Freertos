@@ -13,7 +13,7 @@
 
 #define MONITOR_PERIOD_MS 1000  //采集周期（毫秒）
 #define MONITOR_SIMULATE_ENABLE   0     // 0=真实采集，1=模拟数据（测完必须改回 0）
-
+#define MONITOR_LOG_COUNT 5
 /*******************************************************************************
  * 函数名：TaskMonitor
  * 功  能：监控任务主体：每秒采集一次并打印

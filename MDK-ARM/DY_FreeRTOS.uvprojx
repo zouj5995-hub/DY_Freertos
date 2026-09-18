@@ -888,6 +888,11 @@
               <FileType>1</FileType>
               <FilePath>..\APP\Services\log.c</FilePath>
             </File>
+            <File>
+              <FileName>monitor_service.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\Services\monitor_service.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

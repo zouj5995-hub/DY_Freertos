@@ -103,7 +103,7 @@ int main(void)
   log_init();
   if (monitor_service_init() == false)
   {
-      Error_Handler(); // 监控服务初始化失败
+      Error_Handler();                                      // 监控服务初始化失败
   }
   /* USER CODE END 2 */
 
