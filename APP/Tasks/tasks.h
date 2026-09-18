@@ -32,7 +32,11 @@
 
 #define TASK_POWER_NAME       "power"      // 任务名
 #define TASK_POWER_STACK      384          // 384 字 = 1536 字节
-#define TASK_POWER_PRIO       4            // 供电决策任务优先级最高（业务任务中最高）
+#define TASK_POWER_PRIO       4
+
+#define TASK_COMM_NAME        "comm"       // 任务名
+#define TASK_COMM_STACK       512          // 512 字 = 2048 字节（内含 sscanf 与打包缓冲）
+#define TASK_COMM_PRIO        3            // 通信任务优先级（低于决策）            // 供电决策任务优先级最高（业务任务中最高）
 /* Exported functions prototypes ---------------------------------------------*/
 
 
@@ -44,6 +48,8 @@ void TaskMonitor(void *argument); // 监控任务主体：每秒采集一次并�
 void TaskSelfTest(void *argument);// 自检任务：检查 EEPROM 读写并载入规则表 // 监控任务主体：每秒采集一次并打印
 
 void TaskPower(void *argument);   // 供电决策任务：仲裁 8 台设备的目标状态
+
+void TaskComm(void *argument);    // 通信任务：处理服务器链路的收帧、命令与上报
 
 #endif /* __TASKS_H */
 

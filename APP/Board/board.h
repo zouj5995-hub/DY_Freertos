@@ -42,6 +42,13 @@ typedef enum
 #define BOARD_EEPROM_PAGE_SIZE  64U         // 页大小（字节），AT24C256 为 64
 #define BOARD_EEPROM_WRITE_MS   5U          // 写周期（毫秒）
 
+/* ===== RS485 方向控制引脚（发送时切向、发完切回） ===== */
+#define BOARD_U2_DIR_PORT        GPIOF        // USART2 方向脚端口（协议链路）
+#define BOARD_U2_DIR_PIN         GPIO_PIN_12  // USART2 方向脚（PF12）
+#define BOARD_U3_DIR_PORT        GPIOE        // USART3 方向脚端口（工控机链路）
+#define BOARD_U3_DIR_PIN         GPIO_PIN_15  // USART3 方向脚（PE15）
+#define BOARD_485_DIR_TX_LEVEL   GPIO_PIN_SET // 方向脚为发送时的电平
+
 /* ===== 12V 总控（不参与供电决策，但硬件若仍在回路中须保持接通） ===== */
 #define BOARD_MAIN12V_ENABLE     1           // 1=处理总控引脚；0=板上已无总控则跳过
 #define BOARD_MAIN12V_PORT       GPIOE       // 总控继电器端口

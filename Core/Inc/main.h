@@ -62,10 +62,18 @@ void Error_Handler(void);
 #define BK1_24V_GPIO_Port GPIOC
 #define SONAR_24V_Pin GPIO_PIN_0
 #define SONAR_24V_GPIO_Port GPIOA
+#define EN_U2_Pin GPIO_PIN_1
+#define EN_U2_GPIO_Port GPIOA
 #define BD_24V_Pin GPIO_PIN_4
 #define BD_24V_GPIO_Port GPIOA
+#define U2_DIR_Pin GPIO_PIN_12
+#define U2_DIR_GPIO_Port GPIOF
+#define EN_U3_Pin GPIO_PIN_1
+#define EN_U3_GPIO_Port GPIOG
 #define IPC_24V_Pin GPIO_PIN_9
 #define IPC_24V_GPIO_Port GPIOE
+#define U3_DIR_Pin GPIO_PIN_15
+#define U3_DIR_GPIO_Port GPIOE
 #define BK3_12V_Pin GPIO_PIN_11
 #define BK3_12V_GPIO_Port GPIOA
 #define BEEP_Pin GPIO_PIN_12
@@ -74,12 +82,12 @@ void Error_Handler(void);
 #define BK2_12V_GPIO_Port GPIOD
 #define LED0_Pin GPIO_PIN_4
 #define LED0_GPIO_Port GPIOD
-#define RADAR_12V_Pin GPIO_PIN_7
-#define RADAR_12V_GPIO_Port GPIOD
+#define CAMERA_12V_Pin GPIO_PIN_7
+#define CAMERA_12V_GPIO_Port GPIOD
 #define LED1_Pin GPIO_PIN_13
 #define LED1_GPIO_Port GPIOG
-#define RADAR_12VB3_Pin GPIO_PIN_3
-#define RADAR_12VB3_GPIO_Port GPIOB
+#define RADAR_12V_Pin GPIO_PIN_3
+#define RADAR_12V_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

@@ -34,6 +34,8 @@
 #include "rule_store.h"
 #include "power.h"
 #include "power_apply.h"
+#include "uart485.h"
+#include "protocol.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -113,7 +115,10 @@ int main(void)
   rule_store_init();                                    // EEPROM 与规则存储
   time_service_init();                                  // 时间服务（基于 RTC，须早于使用时间的功能）
   power_init();                                         // 供电决策层（载入规则表）
+  uart485_init();                                       // 485 方向控制与发送互斥量
+  uart485_start_rx();                                   // 启动 USART2 接收中断
   power_apply_init();                                   // 供电执行层（输出状态清零）
+  protocol_init();                                      // 协议层状态复位
 
   if (monitor_service_init() == false)
   {
