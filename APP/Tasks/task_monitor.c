@@ -9,9 +9,10 @@
 #include "sense.h"
 #include <stdio.h>
 #include "log.h"
+#include "monitor_service.h"
 
 #define MONITOR_PERIOD_MS 1000  //采集周期（毫秒）
-
+#define MONITOR_SIMULATE_ENABLE   0     // 0=真实采集，1=模拟数据（测完必须改回 0）
 
 /*******************************************************************************
  * 函数名：TaskMonitor
@@ -22,33 +23,74 @@
  ******************************************************************************/
 void TaskMonitor(void *argument)
 {
-    vTaskDelay(pdMS_TO_TICKS(5000));
-    sense_data_t data;
+    sense_data_t       data;
+    monitor_snapshot_t snapshot;
+    TickType_t         last_wake_tick;
+    uint32_t           last_alarm = MONITOR_ALARM_NONE;
+    uint8_t            log_count  = 0;
+
+    last_wake_tick = xTaskGetTickCount();                       // 记录本周期起点
 
     /*==============================
-     *   #1. 任务主循环（永不退出）
-     ==============================*/
+     *  #1. 任务主循环（永不退出）
+     *==============================*/
     for (;;)
     {
-        /*===============================================================
-         *   #2. 采集全部模拟量（内部是阻塞式 ADC 转换，但本任务优先级低，
-         *       阻塞期间高优先级任务照常运行）
-         ================================================================*/
+        /*==============================
+         *  #2. 采集并更新监控服务
+         *==============================*/
+        #if (MONITOR_SIMULATE_ENABLE == 1)
+        data.voltage  = 24.0f;      // 24.0V，门槛内
+        data.temp_env = 25.0f;
+        data.temp_ipc = 75.0f;      // 模拟工控机过温
+        data.temp_pcb = 30.0f;
+        #else
         sense_read_all(&data);
+        #endif                                                  // 读电压与三路温度
+        monitor_service_update(&data);                          // 更新告警与快照
 
-        /*=========================================================================
-         *   #3. 打印结果
-         *       注意：Keil 的 MicroLIB 不支持 %f，所以把浮点数放大 10 倍用整数打印
-         =========================================================================*/
-        LOG_INFO("\r\n[monitor] \t电压=%u.%uV \t环温=%d.%dC \t舱温=%d.%dC \t板温=%d.%dC\r\n",
-        (unsigned)(data.voltage * 10) / 10, (unsigned)(data.voltage * 10) % 10,
-        (int)(data.temp_env * 10) / 10, (int)(data.temp_env * 10) % 10,
-        (int)(data.temp_ipc * 10) / 10, (int)(data.temp_ipc * 10) % 10,
-        (int)(data.temp_pcb * 10) / 10, (int)(data.temp_pcb * 10) % 10);
-        /*==========================
-         *   #4. 睡 1 秒（让出 CPU）
-         ===========================*/
-        vTaskDelay(pdMS_TO_TICKS(MONITOR_PERIOD_MS));
+        /*==============================
+         *  #3. 读取快照并处理告警变化
+         *==============================*/
+        if (monitor_service_get_snapshot(&snapshot))
+        {
+            if (snapshot.alarm_flags != last_alarm)             // 告警状态发生变化
+            {
+                LOG_WARNING("温度告警变化：0x%02lX -> 0x%02lX",
+                            (unsigned long)last_alarm,
+                            (unsigned long)snapshot.alarm_flags);
+
+                last_alarm = snapshot.alarm_flags;              // 记录本次状态
+            }
+
+            /*==============================
+             *  #4. 每 5 秒打印一次常规数据
+             *==============================*/
+            log_count++;
+
+            if (log_count >= MONITOR_LOG_COUNT)
+            {
+                log_count = 0;
+
+                LOG_INFO("Vx10=%ld Env=%ld Ipc=%ld Pcb=%ld valid=0x%02lX alarm=0x%02lX gate=%u",
+                         (long)(snapshot.data.voltage * 10.0f),
+                         (long)(snapshot.data.temp_env * 10.0f),
+                         (long)(snapshot.data.temp_ipc * 10.0f),
+                         (long)(snapshot.data.temp_pcb * 10.0f),
+                         (unsigned long)snapshot.valid_flags,
+                         (unsigned long)snapshot.alarm_flags,
+                         (unsigned)snapshot.power_on_allowed);
+            }
+        }
+        else
+        {
+            LOG_ERROR("读取监控快照失败");                       // 取锁失败
+        }
+
+        /*==============================
+         *  #5. 等到下一个固定采集周期
+         *==============================*/
+        vTaskDelayUntil(&last_wake_tick, pdMS_TO_TICKS(MONITOR_PERIOD_MS));
     }
 }
 

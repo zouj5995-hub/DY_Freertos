@@ -79,11 +79,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-   /*==============================
-   *  #1. 板级与日志服务初始化（必须早于启动调度器）
-   *==============================*/
-  board_init();
-  log_init();
+   
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -100,7 +96,15 @@ int main(void)
   MX_USART3_UART_Init();
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-
+  /*==============================
+   *  #1. 板级与日志服务初始化（必须早于启动调度器）
+   *==============================*/
+  board_init();
+  log_init();
+  if (monitor_service_init() == false)
+  {
+      Error_Handler(); // 监控服务初始化失败
+  }
   /* USER CODE END 2 */
 
   /* Init scheduler */
