@@ -12,7 +12,7 @@
 #include "log.h"
 
 /* Private define ------------------------------------------------------------*/
-#define SELFTEST_REPEAT_MS   60000U     // 自检复查周期（毫秒）
+#define SELFTEST_REPEAT_MS   600000U    // 只读巡检周期（毫秒）：EEPROM 写寿命有限，运行期不再写
 
 /* Private variables ---------------------------------------------------------*/
 static rule_item_t s_rules[RULE_COUNT];         // 规则表（static：大数组不能放任务栈上）
@@ -103,41 +103,46 @@ static void selftest_report_rules(void)
  * 功  能：自检任务主体：检查 EEPROM 读写并载入规则表
  * 参  数：argument —— 创建任务时传入的参数，本任务不使用
  * 返回值：无（永不返回）
- * 说  明：自检周期较长（60 秒），EEPROM 写寿命有限，不做高频写入
+ * 说  明：开机做一次写测试，运行期只做只读巡检，避免消耗 EEPROM 写寿命
  ******************************************************************************/
 void TaskSelfTest(void *argument)
 {
     /*==============================
-     *  #1. 任务主循环（永不退出）
+     *  #1. 开机一次性完整自检（含 EEPROM 写测试）
+     *==============================*/
+    if (eeprom_self_test())
+    {
+        LOG_INFO("EEPROM 读写自检：通过");
+    }
+    else
+    {
+        LOG_ERROR("EEPROM 读写自检：失败（请检查 SDA/SCL 接线与上拉电阻）");
+    }
+
+    if (rule_store_load(s_rules, RULE_COUNT))
+    {
+        selftest_report_rules();                            // 开机只打印一次规则表
+    }
+    else
+    {
+        LOG_ERROR("规则表载入失败（EEPROM 读取异常）");
+    }
+
+    /*==============================
+     *  #2. 任务主循环（永不退出）
      *==============================*/
     for (;;)
     {
         /*==============================
-         *  #2. EEPROM 读写自检（写模式再读回比对）
+         *  #3. 只读巡检：能读出规则表即视为正常（运行期不写 EEPROM，避免磨损）
          *==============================*/
-        if (eeprom_self_test())
+        if (rule_store_load(s_rules, RULE_COUNT) == false)
         {
-            LOG_INFO("EEPROM 自检：通过");
-        }
-        else
-        {
-            LOG_ERROR("EEPROM 自检：失败（请检查 SDA/SCL 接线与上拉电阻）");
+            LOG_ERROR("EEPROM 只读巡检失败（读取异常）");
         }
 
         /*==============================
-         *  #3. 从 EEPROM 载入规则表
-         *==============================*/
-        if (rule_store_load(s_rules, RULE_COUNT))
-        {
-            selftest_report_rules();                                // 打印规则表
-        }
-        else
-        {
-            LOG_ERROR("规则表载入失败（EEPROM 读取异常）");         // 读取失败
-        }
-
-        /*==============================
-         *  #4. 等待下一个自检周期
+         *  #4. 等待下一个巡检周期
          *==============================*/
         vTaskDelay(pdMS_TO_TICKS(SELFTEST_REPEAT_MS));
     }
