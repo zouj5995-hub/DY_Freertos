@@ -36,6 +36,7 @@ void TaskComm(void *argument)
     TickType_t stat_tick;                               // 诊断统计打印节拍
     bool       restart_waiting;
 
+    LOG_INFO("通信任务已启动");
     last_wake_tick = xTaskGetTickCount();               // 记录周期起点
     restart_waiting = false;                            // 尚未收到重启请求
     stat_tick       = xTaskGetTickCount();

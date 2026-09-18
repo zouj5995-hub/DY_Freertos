@@ -33,6 +33,7 @@ void TaskHeartbeat(void *argument)
      *   #1. 开机只做一次：打印系统基础信息
      *************/
     LOG_INFO("\r\n===== 系统启动信息 =====\r\n");
+    LOG_INFO("固件编译时间：" __DATE__ " " __TIME__);   // 用于确认烧录的是否为最新固件
 
     /* #1.1 上次复位原因（读完必须清零，否则下次开机会重复上报） */
     if (__HAL_RCC_GET_FLAG(RCC_FLAG_IWDGRST) != RESET)          // 看门狗复位

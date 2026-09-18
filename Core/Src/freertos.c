@@ -1,4 +1,4 @@
-/* USER CODE BEGIN Header */
+﻿/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * File Name          : freertos.c
@@ -64,6 +64,8 @@ const osThreadAttr_t defaultTask_attributes = {
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+/* 带失败检查的任务创建接口（创建失败会打印原因） */
+void app_task_create(TaskFunction_t fn, const char *name, uint16_t stack, UBaseType_t prio);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -78,12 +80,13 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
   */
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
-  xTaskCreate(TaskHeartbeat, TASK_HEARTBEAT_NAME, TASK_HEARTBEAT_STACK, NULL, TASK_HEARTBEAT_PRIO, NULL);
-  xTaskCreate(TaskMonitor, TASK_MONITOR_NAME, TASK_MONITOR_STACK, NULL, TASK_MONITOR_PRIO, NULL);
-  xTaskCreate(TaskLog, TASK_LOG_NAME, TASK_LOG_STACK, NULL, TASK_LOG_PRIO, NULL);
-  xTaskCreate(TaskSelfTest, TASK_SELFTEST_NAME, TASK_SELFTEST_STACK, NULL, TASK_SELFTEST_PRIO, NULL);
-  xTaskCreate(TaskPower, TASK_POWER_NAME, TASK_POWER_STACK, NULL, TASK_POWER_PRIO, NULL);
-  xTaskCreate(TaskComm, TASK_COMM_NAME, TASK_COMM_STACK, NULL, TASK_COMM_PRIO, NULL);
+  /* 用带检查的接口创建任务：任一失败都会打印原因（通常是堆内存不足） */
+  app_task_create(TaskHeartbeat, TASK_HEARTBEAT_NAME, TASK_HEARTBEAT_STACK, TASK_HEARTBEAT_PRIO);
+  app_task_create(TaskMonitor,   TASK_MONITOR_NAME,   TASK_MONITOR_STACK,   TASK_MONITOR_PRIO);
+  app_task_create(TaskLog,       TASK_LOG_NAME,       TASK_LOG_STACK,       TASK_LOG_PRIO);
+  app_task_create(TaskSelfTest,  TASK_SELFTEST_NAME,  TASK_SELFTEST_STACK,  TASK_SELFTEST_PRIO);
+  app_task_create(TaskPower,     TASK_POWER_NAME,     TASK_POWER_STACK,     TASK_POWER_PRIO);
+  app_task_create(TaskComm,      TASK_COMM_NAME,      TASK_COMM_STACK,      TASK_COMM_PRIO);
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -139,6 +142,25 @@ void StartDefaultTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+/*******************************************************************************
+ * 函数名：app_task_create
+ * 功  能：创建任务并检查结果
+ * 参  数：fn —— 任务函数；name —— 任务名；stack —— 栈（字）；prio —— 优先级
+ * 返回值：无
+ * 说  明：创建失败通常意味着 FreeRTOS 堆内存不足，必须打印出来；
+ *         否则任务会“静默缺失”，现象是功能完全没反应却查不出原因
+ ******************************************************************************/
+void app_task_create(TaskFunction_t fn, const char *name, uint16_t stack, UBaseType_t prio)
+{
+  /*==============================
+   *  #1. 创建任务并检查返回值
+   *==============================*/
+  if (xTaskCreate(fn, name, stack, NULL, prio, NULL) != pdPASS)
+  {
+    printf("[ERROR] 创建任务 %s 失败：FreeRTOS 堆内存不足\r\n", name);
+  }
+}
+
 
 /* USER CODE END Application */
 

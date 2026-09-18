@@ -27,7 +27,7 @@ extern "C" {
 
 #define LOG_COMPILE_LEVEL   LOG_LEVEL_DEBUG     // 编译期开关：发布固件时改成 LOG_LEVEL_INFO
 #define LOG_DEFAULT_LEVEL   LOG_LEVEL_INFO      // 运行期默认等级
-#define LOG_TEXT_MAX        256                 // 单条日志最大长度（含前缀与换行）
+#define LOG_TEXT_MAX        128                 // 单条日志最大长度（含前缀与换行）
 #define LOG_QUEUE_LEN       6                   // 日志队列深度（满则丢弃，保护业务）
 
 /* 文件名（去掉路径），供日志前缀使用 */
