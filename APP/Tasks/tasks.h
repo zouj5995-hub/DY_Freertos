@@ -36,7 +36,11 @@
 
 #define TASK_COMM_NAME        "comm"       // 任务名
 #define TASK_COMM_STACK       512          // 512 字 = 2048 字节（内含 sscanf 与打包缓冲）
-#define TASK_COMM_PRIO        3            // 通信任务优先级（低于决策）            // 供电决策任务优先级最高（业务任务中最高）
+#define TASK_COMM_PRIO        3
+
+#define TASK_WDG_NAME         "wdg"        // 任务名
+#define TASK_WDG_STACK        256          // 256 字 = 1024 字节
+#define TASK_WDG_PRIO         2            // 看门狗任务优先级            // 通信任务优先级（低于决策）            // 供电决策任务优先级最高（业务任务中最高）
 /* Exported functions prototypes ---------------------------------------------*/
 
 
@@ -50,6 +54,8 @@ void TaskSelfTest(void *argument);// 自检任务：检查 EEPROM 读写并载�
 void TaskPower(void *argument);   // 供电决策任务：仲裁 8 台设备的目标状态
 
 void TaskComm(void *argument);    // 通信任务：处理服务器链路的收帧、命令与上报
+
+void TaskWdg(void *argument);     // 看门狗任务：心跳齐全才喂狗
 
 #endif /* __TASKS_H */
 

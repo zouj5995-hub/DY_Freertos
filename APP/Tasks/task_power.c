@@ -12,6 +12,7 @@
 #include "time_service.h"
 #include "monitor_service.h"
 #include "log.h"
+#include "wdg_service.h"
 
 /* Private define ------------------------------------------------------------*/
 #define POWER_PERIOD_MS     100U        // 决策周期（毫秒）
@@ -132,6 +133,7 @@ void TaskPower(void *argument)
         /*==============================
          *  #7. 等到下一个决策周期
          *==============================*/
+        wdg_kick(WDG_BIT_POWER);                            // 上报心跳（供电决策任务）
         vTaskDelayUntil(&last_wake_tick, pdMS_TO_TICKS(POWER_PERIOD_MS));
     }
 }

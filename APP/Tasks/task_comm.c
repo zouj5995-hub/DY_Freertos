@@ -11,6 +11,7 @@
 #include "usart.h"
 #include "protocol.h"
 #include "log.h"
+#include "wdg_service.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -116,6 +117,7 @@ void TaskComm(void *argument)
         /*==============================
          *  #5. 等到下一个处理周期
          *==============================*/
+        wdg_kick(WDG_BIT_COMM);                             // 上报心跳（通信任务）
         vTaskDelayUntil(&last_wake_tick, pdMS_TO_TICKS(COMM_POLL_MS));
     }
 }

@@ -9,6 +9,7 @@
 #include "sense.h"
 #include <stdio.h>
 #include "log.h"
+#include "wdg_service.h"
 #include "monitor_service.h"
 
 #define MONITOR_PERIOD_MS 1000  //采集周期（毫秒）
@@ -90,6 +91,7 @@ void TaskMonitor(void *argument)
         /*==============================
          *  #5. 等到下一个固定采集周期
          *==============================*/
+        wdg_kick(WDG_BIT_MONITOR);                          // 上报心跳（监控任务）
         vTaskDelayUntil(&last_wake_tick, pdMS_TO_TICKS(MONITOR_PERIOD_MS));
     }
 }

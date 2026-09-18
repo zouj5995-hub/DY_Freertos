@@ -12,6 +12,7 @@
 #include "queue.h"
 #include "semphr.h"
 #include "usart.h"
+#include "wdg_service.h"
 #include <stdarg.h>
 
 /* Private types -------------------------------------------------------------*/
@@ -241,9 +242,11 @@ void TaskLog(void *argument)
         /*==============================
          *  #2. 等一条日志，取到就输出
          *==============================*/
-        if (xQueueReceive(s_log_queue, &m, portMAX_DELAY) == pdTRUE)    // 阻塞等待
+        if (xQueueReceive(s_log_queue, &m, pdMS_TO_TICKS(500)) == pdTRUE)   // 带超时：没日志时也要能上报心跳    // 阻塞等待
         {
             log_write_sync(m.text, m.len);                              // 串行化输出，不会交错
         }
+
+        wdg_kick(WDG_BIT_LOG);                                      // 无论有没有日志都报心跳
     }
 }

@@ -1,4 +1,4 @@
-/* USER CODE BEGIN Header */
+﻿/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * @file           : main.c
@@ -20,6 +20,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "adc.h"
+#include "iwdg.h"
 #include "rtc.h"
 #include "usart.h"
 #include "gpio.h"
@@ -36,6 +37,7 @@
 #include "power_apply.h"
 #include "uart485.h"
 #include "protocol.h"
+#include "wdg_service.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -105,6 +107,7 @@ int main(void)
   MX_USART3_UART_Init();
   MX_ADC1_Init();
   MX_RTC_Init();
+  MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
   /*==============================
    *  #1. 板级与各服务初始化（必须早于启动调度器）
@@ -119,6 +122,7 @@ int main(void)
   uart485_start_rx();                                   // 启动 USART2 接收中断
   power_apply_init();                                   // 供电执行层（输出状态清零）
   protocol_init();                                      // 协议层状态复位
+  wdg_service_init();                                   // 看门狗心跳事件组
 
   if (monitor_service_init() == false)
   {
@@ -160,11 +164,13 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE|RCC_OSCILLATORTYPE_LSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE
+                              |RCC_OSCILLATORTYPE_LSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;

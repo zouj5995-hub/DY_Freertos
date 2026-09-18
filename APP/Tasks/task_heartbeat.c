@@ -10,6 +10,7 @@
 #include "main.h"
 #include <stdio.h>
 #include "log.h"
+#include "wdg_service.h"
 #include "time_service.h"
 /* Private define ------------------------------------------------------------*/
 #define LED_TOGGLE_PERIOD_MS   500      // LED 翻转周期（毫秒）
@@ -87,6 +88,7 @@ void TaskHeartbeat(void *argument)
          *   #2.1 翻转运行指示灯，然后睡 500ms 让出 CPU
          *************/
         HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);           // 翻转 LED0
+        wdg_kick(WDG_BIT_HEARTBEAT);                        // 上报心跳（心跳任务）
         vTaskDelay(pdMS_TO_TICKS(LED_TOGGLE_PERIOD_MS));        // 睡觉，CPU 交给别人
 
         /*************

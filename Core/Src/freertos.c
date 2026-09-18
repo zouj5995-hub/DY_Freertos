@@ -87,6 +87,7 @@ void MX_FREERTOS_Init(void) {
   app_task_create(TaskSelfTest,  TASK_SELFTEST_NAME,  TASK_SELFTEST_STACK,  TASK_SELFTEST_PRIO);
   app_task_create(TaskPower,     TASK_POWER_NAME,     TASK_POWER_STACK,     TASK_POWER_PRIO);
   app_task_create(TaskComm,      TASK_COMM_NAME,      TASK_COMM_STACK,      TASK_COMM_PRIO);
+  app_task_create(TaskWdg,       TASK_WDG_NAME,       TASK_WDG_STACK,       TASK_WDG_PRIO);
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
