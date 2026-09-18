@@ -1,4 +1,4 @@
-/*******************************************************************************
+﻿/*******************************************************************************
  * 文件   ：board.h
  * 功能   ：板级硬件描述层（Board Layer）对外接口
  * 说明   ：本层只回答一个问题——“哪台设备，对应哪个引脚，什么电平算开”。
@@ -31,6 +31,24 @@ typedef enum
 
 
 
+/* Exported constants --------------------------------------------------------*/
+
+/* ===== EEPROM（AT24C256）软件 I2C 引脚与参数 ===== */
+#define BOARD_EEPROM_SCL_PORT   GPIOG       // SCL 端口
+#define BOARD_EEPROM_SCL_PIN    GPIO_PIN_3  // SCL 引脚
+#define BOARD_EEPROM_SDA_PORT   GPIOG       // SDA 端口
+#define BOARD_EEPROM_SDA_PIN    GPIO_PIN_2  // SDA 引脚
+#define BOARD_EEPROM_ADDR       0xA0U       // 器件地址（写操作）
+#define BOARD_EEPROM_PAGE_SIZE  64U         // 页大小（字节），AT24C256 为 64
+#define BOARD_EEPROM_WRITE_MS   5U          // 写周期（毫秒）
+
+/* ===== 12V 总控（不参与供电决策，但硬件若仍在回路中须保持接通） ===== */
+#define BOARD_MAIN12V_ENABLE     1           // 1=处理总控引脚；0=板上已无总控则跳过
+#define BOARD_MAIN12V_PORT       GPIOE       // 总控继电器端口
+#define BOARD_MAIN12V_PIN        GPIO_PIN_12 // 总控继电器引脚（PE12）
+#define BOARD_MAIN12V_ON_LEVEL   GPIO_PIN_RESET // 接通电平（低电平接通，沿用旧板）
+
+/* Exported functions prototypes ---------------------------------------------*/
 void board_init(void);//把所有设备置于“断电”状态
 
 void board_power_set(dev_id_t dev, bool on);//给指定设备供电或断电

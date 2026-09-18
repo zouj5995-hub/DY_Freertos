@@ -1,4 +1,4 @@
-/*******************************************************************************
+﻿/*******************************************************************************
  * 文件   ：task_heartbeat.c
  * 功能   ：心跳任务——闪 LED + 周期性打印任务列表
  * 说明   ：任务函数的固定长相：void 函数 + void* 参数 + for(;;) 永不返回；
@@ -10,6 +10,7 @@
 #include "main.h"
 #include <stdio.h>
 #include "log.h"
+#include "time_service.h"
 /* Private define ------------------------------------------------------------*/
 #define LED_TOGGLE_PERIOD_MS   500      // LED 翻转周期（毫秒）
 #define TASKLIST_PERIOD_MS     5000     // 打印任务列表周期（毫秒）
@@ -57,6 +58,23 @@ void TaskHeartbeat(void *argument)
 
     /* #1.3 剩余堆（验证 heap 大小配置生效） */
     LOG_INFO("剩余堆 = %u 字节\r\n", (unsigned) xPortGetFreeHeapSize());
+
+    /* #1.4 RTC 时间与时间可信状态 */
+    {
+        app_time_t now;
+
+        if (time_service_get(&now))
+        {
+            LOG_INFO("RTC = %04u-%02u-%02u %02u:%02u:%02u  可信=%u\r\n",
+                     now.year, now.month, now.day,
+                     now.hour, now.minute, now.second,
+                     (unsigned)time_service_is_reliable());
+        }
+        else
+        {
+            LOG_ERROR("RTC 读取失败\r\n");
+        }
+    }
 
 
     /*************

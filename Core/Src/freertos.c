@@ -1,4 +1,4 @@
-/* USER CODE BEGIN Header */
+﻿/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * File Name          : freertos.c
@@ -33,7 +33,6 @@
 #include "log.h"
 /* USER CODE BEGIN Includes */
                      // 日志服务
-/* USER CODE END Includes */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -82,6 +81,8 @@ void MX_FREERTOS_Init(void) {
   xTaskCreate(TaskHeartbeat, TASK_HEARTBEAT_NAME, TASK_HEARTBEAT_STACK, NULL, TASK_HEARTBEAT_PRIO, NULL);
   xTaskCreate(TaskMonitor, TASK_MONITOR_NAME, TASK_MONITOR_STACK, NULL, TASK_MONITOR_PRIO, NULL);
   xTaskCreate(TaskLog, TASK_LOG_NAME, TASK_LOG_STACK, NULL, TASK_LOG_PRIO, NULL);
+  xTaskCreate(TaskSelfTest, TASK_SELFTEST_NAME, TASK_SELFTEST_STACK, NULL, TASK_SELFTEST_PRIO, NULL);
+  xTaskCreate(TaskPower, TASK_POWER_NAME, TASK_POWER_STACK, NULL, TASK_POWER_PRIO, NULL);
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */

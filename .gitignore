@@ -18,3 +18,12 @@
 # IDE specific files
 *.uvgui.*
 *.uvguix.*
+# 工具与构建产物
+.reasonix/
+MDK-ARM/DY_FreeRTOS/
+*.uvoptx
+*.uvguix.*
+*.bak
+*.bak2
+*.bak3
+*.uvprojx.bak*

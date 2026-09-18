@@ -1,4 +1,4 @@
-#include "board.h"
+﻿#include "board.h"
 
 
 
@@ -35,6 +35,7 @@ static const board_out_t out_table[DEV_CNT] =
 
 /* Private functions prototypes ----------------------------------------------*/
 static GPIO_PinState board_to_level(const board_out_t *o, bool on);
+static void board_main12v_init(void);                              // 12V 总控引脚初始化并保持接通
 
 /* Private functions ---------------------------------------------------------*/
 
@@ -49,6 +50,35 @@ static GPIO_PinState board_to_level(const board_out_t *o, bool on);
 static GPIO_PinState board_to_level(const board_out_t *o, bool on)
 {
     return on ? (GPIO_PinState)o->active_level : (GPIO_PinState)!o->active_level;
+}
+
+/*******************************************************************************
+ * 函数名：board_main12v_init
+ * 功  能：初始化 12V 总控引脚并把它置于接通状态
+ * 参  数：无
+ * 返回值：无
+ * 说  明：总控不参与供电决策，但若硬件仍串在 12V 回路中必须保持接通，
+ *         否则雷达/摄像头/备用二/备用三永远无法上电；
+ *         板上已取消总控时把 BOARD_MAIN12V_ENABLE 置 0 即可跳过
+ ******************************************************************************/
+static void board_main12v_init(void)
+{
+    GPIO_InitTypeDef init = {0};
+
+    /*==============================
+     *  #1. 配置总控引脚为推挽输出
+     *==============================*/
+    __HAL_RCC_GPIOE_CLK_ENABLE();                       // 使能 GPIOE 时钟
+    init.Pin   = BOARD_MAIN12V_PIN;                     // 总控引脚
+    init.Mode  = GPIO_MODE_OUTPUT_PP;                   // 推挽输出
+    init.Pull  = GPIO_NOPULL;                           // 不需要上下拉
+    init.Speed = GPIO_SPEED_FREQ_LOW;                   // 低速即可
+    HAL_GPIO_Init(BOARD_MAIN12V_PORT, &init);           // 应用配置
+
+    /*==============================
+     *  #2. 置于接通状态
+     *==============================*/
+    HAL_GPIO_WritePin(BOARD_MAIN12V_PORT, BOARD_MAIN12V_PIN, BOARD_MAIN12V_ON_LEVEL);
 }
 
 /* Exported functions --------------------------------------------------------*/
@@ -69,6 +99,10 @@ void board_init(void)
     {
         board_power_set((dev_id_t)i, false);            // false = 断电
     }
+
+#if (BOARD_MAIN12V_ENABLE == 1)
+    board_main12v_init();                               // 12V 总控保持接通
+#endif
 }
 
 /*******************************************************************************

@@ -1,4 +1,4 @@
-/* USER CODE BEGIN Header */
+﻿/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * @file           : main.c
@@ -20,6 +20,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "adc.h"
+#include "rtc.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -27,6 +28,12 @@
 /* USER CODE BEGIN Includes */
 #include "board.h"
 #include "log.h"
+#include "monitor_service.h"
+#include "time_service.h"
+#include "delay_us.h"
+#include "rule_store.h"
+#include "power.h"
+#include "power_apply.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -95,16 +102,24 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   MX_ADC1_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   /*==============================
-   *  #1. 板级与日志服务初始化（必须早于启动调度器）
+   *  #1. 板级与各服务初始化（必须早于启动调度器）
    *==============================*/
-  board_init();
-  log_init();
+  board_init();                                         // 8 台设备断电，12V 总控保持接通
+  log_init();                                           // 日志队列与串口互斥量
+  delay_us_init();                                      // 微秒延时（软件 I2C 依赖）
+  rule_store_init();                                    // EEPROM 与规则存储
+  time_service_init();                                  // 时间服务（基于 RTC，须早于使用时间的功能）
+  power_init();                                         // 供电决策层（载入规则表）
+  power_apply_init();                                   // 供电执行层（输出状态清零）
+
   if (monitor_service_init() == false)
   {
-      Error_Handler();                                      // 监控服务初始化失败
+      Error_Handler();                                  // 监控服务初始化失败
   }
+
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -140,9 +155,10 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE|RCC_OSCILLATORTYPE_LSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
@@ -165,7 +181,8 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_ADC;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
   PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
