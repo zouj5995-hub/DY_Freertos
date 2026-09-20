@@ -27,3 +27,5 @@ MDK-ARM/DY_FreeRTOS/
 *.bak2
 *.bak3
 *.uvprojx.bak*
+# 对话/笔记导出（不入版本库）
+DY - *.md
