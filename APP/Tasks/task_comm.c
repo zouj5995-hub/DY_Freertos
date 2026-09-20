@@ -9,6 +9,7 @@
 #include "tasks.h"
 #include "uart485.h"
 #include "board.h"
+#include "delay_us.h"
 #include "usart.h"
 #include "protocol.h"
 #include "log.h"
@@ -121,6 +122,24 @@ void TaskComm(void *argument)
             static const uint8_t pc_test[] = "PC-LINK-TEST\r\n";
 
             pc_test_tick = xTaskGetTickCount();
+
+            /* 【调试】读 GPIOB 配置寄存器，确认 PB10 是否被配成复用推挽(B) */
+            LOG_INFO("GPIOB->CRH=0x%08lX  PB10配置位=%lX (B=复用推挽 8=普通推挽 4=浮空输入 1=推挽输出)",
+                     (unsigned long)GPIOB->CRH,
+                     (unsigned long)((GPIOB->CRH >> 8) & 0xFU));
+
+            /* 【调试】手动翻转 PB10：若电平跟着变，说明它是普通 GPIO（复用没生效） */
+            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+            delay_us(500U);
+            {
+                GPIO_PinState s_low = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10);
+
+                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+                delay_us(500U);
+
+                LOG_INFO("PB10 翻转测试：写入低后读到=%d (0=受GPIO控制即复用未生效, 1=复用输出正常)",
+                         (int)s_low);
+            }
 
             LOG_INFO("USART3 诊断：CR1=0x%04X(UE=%d TE=%d) gState=%d",
                      (unsigned)huart3.Instance->CR1,
