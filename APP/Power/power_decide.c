@@ -61,6 +61,7 @@ static void power_expand_device(uint8_t code, uint16_t *req);                   
 static void power_collect_schedule(const power_input_t *in, uint16_t *req);     // 收集任务策略请求
 static void power_collect_bd_keep(const power_input_t *in, uint16_t *req);      // 收集北斗保持请求
 static void power_collect_protect(const power_input_t *in, uint16_t *req);      // 收集温度保护请求
+static void power_collect_follow(uint16_t *req);                                // 收集跟随类请求（北斗跟随工控机）
 static bool power_decide_device(dev_id_t dev, const uint16_t *req, bool pc_target);  // 单台设备仲裁
 
 /* Private functions ---------------------------------------------------------*/
@@ -389,6 +390,25 @@ void power_clear_manual(void)
 }
 
 /*******************************************************************************
+ * 函数名：power_collect_follow
+ * 功  能：收集跟随类请求——北斗跟随工控机的开关状态
+ * 参  数：req —— 各设备的请求位数组（就地置位）
+ * 返回值：无
+ * 说  明：北斗负责定时播报工控机温度，因此其开关必须跟随工控机：
+ *          工控机开则北斗开，工控机关则北斗关。
+ *          此处只无条件置位请求位，是否真正采用由仲裁层按优先级决定
+ *          （保护否决 > 保持窗口 > 跟随 > 手动 > 任务策略），
+ *          故北斗自身的搜星/校时/上报窗口仍优先于跟随。
+ ******************************************************************************/
+static void power_collect_follow(uint16_t *req)
+{
+    /*==============================
+     *  #1. 北斗跟随工控机：无条件置位请求位
+     *==============================*/
+    req[DEV_BD] |= RQ_FOLLOW_PC;
+}
+
+/*******************************************************************************
  * 函数名：power_decide
  * 功  能：收集所有请求并仲裁出 8 台设备的目标状态
  * 参  数：in  —— 决策输入
@@ -414,6 +434,7 @@ void power_decide(const power_input_t *in, power_decision_t *out)
     power_collect_schedule(in, out->req_mask);              // 任务策略
     power_collect_bd_keep(in, out->req_mask);               // 北斗保持窗口
     power_collect_protect(in, out->req_mask);               // 温度保护
+    power_collect_follow(out->req_mask);                    // 跟随类（北斗跟随工控机）
 
     /*==============================
      *  #3. 先算工控机（北斗要跟随它的最终结论）
