@@ -62,6 +62,21 @@ typedef enum
 #define BOARD_MAIN12V_PIN        GPIO_PIN_12 // 总控继电器引脚（PE12）
 #define BOARD_MAIN12V_ON_LEVEL   GPIO_PIN_RESET // 接通电平（低电平接通，沿用旧板）
 
+/* ===== LoRa 模块（A39C）软件模拟串口：引脚与参数 ===== */
+#define BOARD_LORA_TX_PORT       GPIOB          // 软串口 TX 端口（接模块 RXD）
+#define BOARD_LORA_TX_PIN        GPIO_PIN_6     // 软串口 TX（PB6）
+#define BOARD_LORA_RX_PORT       GPIOB          // 软串口 RX 端口（接模块 TXD）
+#define BOARD_LORA_RX_PIN        GPIO_PIN_5     // 软串口 RX（PB5）
+#define BOARD_LORA_MD0_PORT      GPIOB          // 模块 MD0 模式脚端口
+#define BOARD_LORA_MD0_PIN       GPIO_PIN_8     // MD0（PB8）
+#define BOARD_LORA_MD1_PORT      GPIOB          // 模块 MD1 模式脚端口
+#define BOARD_LORA_MD1_PIN       GPIO_PIN_7     // MD1（PB7）
+#define BOARD_LORA_AUX_PORT      GPIOB          // 模块 AUX 忙闲指示脚端口
+#define BOARD_LORA_AUX_PIN       GPIO_PIN_4     // AUX（PB4）
+#define BOARD_LORA_BAUD          9600U          // 软串口波特率（与模块一致）
+#define BOARD_LORA_MD0_LEVEL     GPIO_PIN_SET   // 一般工作模式：MD0 为高
+#define BOARD_LORA_MD1_LEVEL     GPIO_PIN_RESET // 一般工作模式：MD1 为低
+
 /* Exported functions prototypes ---------------------------------------------*/
 void board_init(void);//把所有设备置于“断电”状态
 
