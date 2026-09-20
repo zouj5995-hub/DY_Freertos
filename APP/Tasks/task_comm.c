@@ -8,6 +8,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "tasks.h"
 #include "uart485.h"
+#include "board.h"
 #include "usart.h"
 #include "protocol.h"
 #include "log.h"
@@ -35,12 +36,14 @@ void TaskComm(void *argument)
     TickType_t last_wake_tick;
     TickType_t restart_tick;
     TickType_t stat_tick;                               // 诊断统计打印节拍
+    TickType_t pc_test_tick;                            // 【调试】串口3 循环测试节拍
     bool       restart_waiting;
 
     LOG_INFO("通信任务已启动");
     last_wake_tick = xTaskGetTickCount();               // 记录周期起点
     restart_waiting = false;                            // 尚未收到重启请求
     stat_tick       = xTaskGetTickCount();
+    pc_test_tick    = xTaskGetTickCount();
 
     /*==============================
      *  #0. 上电自检：主动发一帧，验证 485 发送方向是否正常
@@ -107,6 +110,30 @@ void TaskComm(void *argument)
                      (unsigned long)uart485_get_idle_count(),
                      (unsigned long)uart485_get_tx_count(),
                      (unsigned)(uart485_rx_ready() ? 1U : 0U));
+        }
+
+        /*==============================
+         *  #2.1 【调试】每 5 秒向串口3 发一帧，并打印两个控制脚电平
+         *      —— 用于判断是“链路不通”还是“没触发关机流程”，确认后删除
+         *==============================*/
+        if ((xTaskGetTickCount() - pc_test_tick) >= pdMS_TO_TICKS(5000))
+        {
+            static const uint8_t pc_test[] = "PC-LINK-TEST\r\n";
+
+            pc_test_tick = xTaskGetTickCount();
+
+            LOG_INFO("串口3 状态：U3_DIR(PE15)=%d  EN_U3(PG1)=%d",
+                     (int)HAL_GPIO_ReadPin(BOARD_U3_DIR_PORT, BOARD_U3_DIR_PIN),
+                     (int)HAL_GPIO_ReadPin(BOARD_U3_EN_PORT, BOARD_U3_EN_PIN));
+
+            if (uart485_send(&huart3, pc_test, (uint16_t)(sizeof(pc_test) - 1U)))
+            {
+                LOG_INFO("串口3 测试帧发送成功（PC-LINK-TEST）");
+            }
+            else
+            {
+                LOG_ERROR("串口3 测试帧发送失败");
+            }
         }
 
         protocol_report_check();
