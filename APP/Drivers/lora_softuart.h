@@ -23,7 +23,8 @@ extern "C" {
 /* Exported functions prototypes ---------------------------------------------*/
 void lora_init(void);                                       // 初始化引脚并使模块进入透传模式
 void lora_send(const uint8_t *data, uint16_t len);          // 阻塞发送一段数据（软件位翻转）
-void lora_poll(void);                                       // 接收轮询：采一个字节进缓冲（周期调用）
+void lora_poll(void);                                       // 接收轮询：判定一帧是否收完（周期调用）
+void lora_rx_isr(void);                                     // LoRa 接收中断服务：采样一个字节（由 PB5 下降沿中断调用）
 bool lora_rx_ready(void);                                   // 是否已收到一帧完整数据
 uint16_t lora_rx_take(uint8_t *buf, uint16_t max_len);      // 取走整帧并返回长度
 

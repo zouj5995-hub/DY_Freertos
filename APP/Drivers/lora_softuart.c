@@ -18,7 +18,7 @@
 
 /* Private define ------------------------------------------------------------*/
 #define LORA_BIT_TIME_US    (1000000U / BOARD_LORA_BAUD)   // 一个位的时间（微秒）
-#define LORA_POLL_MAX_MS    300U                         // 单次轮询最长占用时间（毫秒）
+#define LORA_POLL_MAX_MS    60U                          // 单次轮询最长占用时间（毫秒）：够“等起始位 + 收完一整帧”
 
 /* Private variables ---------------------------------------------------------*/
 static uint8_t    s_rx_buf[LORA_RX_BUF_SIZE];      // 接收缓冲
@@ -72,10 +72,11 @@ static void lora_tx_bit(bool high)
 
 /*******************************************************************************
  * 函数名：lora_rx_byte
- * 功  能：采样一个字节（调用时已确认检测到起始位且已等待半个位时间）
+ * 功  能：采样一个字节（调用时已检测到起始位，且已等待半个位时间）
  * 参  数：无
  * 返回值：采样得到的字节
- * 说  明：采样期间进入临界区，保证 8 个数据位的间隔精确
+ * 说  明：本函数在外部中断里调用：中断上下文天然不会被任务打断，故不再
+ *          额外关中断；DWT 延时不受关中断影响，位间隔依然精确
  ******************************************************************************/
 static uint8_t lora_rx_byte(void)
 {
@@ -90,8 +91,6 @@ static uint8_t lora_rx_byte(void)
     /*==============================
      *  #2. 逐位采样（LSB 在前）
      *==============================*/
-    taskENTER_CRITICAL();
-
     for (bit = 0U; bit < 8U; bit++)
     {
         if ((BOARD_LORA_RX_PORT->IDR & BOARD_LORA_RX_PIN) != 0U)
@@ -102,9 +101,58 @@ static uint8_t lora_rx_byte(void)
         delay_us(LORA_BIT_TIME_US);
     }
 
-    taskEXIT_CRITICAL();
-
     return data;
+}
+
+/*******************************************************************************
+ * 函数名：lora_rx_isr
+ * 功  能：LoRa 接收中断服务：确认起始位后采样一个字节存入接收缓冲
+ * 参  数：无
+ * 返回值：无
+ * 说  明：由 PB5 下降沿中断触发。先等半个位再确认一次以排除毛刺；
+ *          整个过程约 1ms，期间不返回（中断上下文）
+ ******************************************************************************/
+void lora_rx_isr(void)
+{
+    /*==============================
+     *  #1. 先等半个位，排除窄脉冲干扰
+     *==============================*/
+    delay_us(LORA_BIT_TIME_US / 2U);
+
+    if (lora_rx_line_low() == false)
+    {
+        return;                                         // 半位后已回高，判为毛刺
+    }
+
+    /*==============================
+     *  #2. 缓冲满或上一帧尚未取走时，丢弃本次数据
+     *==============================*/
+    if ((s_rx_len >= LORA_RX_BUF_SIZE) || (s_rx_ready == true))
+    {
+        return;
+    }
+
+    /*==============================
+     *  #3. 采样一个字节存入缓冲
+     *==============================*/
+    s_rx_buf[s_rx_len++] = lora_rx_byte();
+    s_rx_bytes++;                                       // 累计接收字节数（诊断）
+    s_last_rx_tick = xTaskGetTickCountFromISR();        // 记录时刻，供帧结束判定
+}
+
+/*******************************************************************************
+ * 函数名：HAL_GPIO_EXTI_Callback
+ * 功  能：GPIO 外部中断回调：把中断分派给对应的处理函数
+ * 参  数：GPIO_Pin —— 触发中断的引脚
+ * 返回值：无
+ * 说  明：覆盖 HAL 的弱定义；本工程只用到 LoRa RX 这一个外部中断
+ ******************************************************************************/
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == BOARD_LORA_RX_PIN)
+    {
+        lora_rx_isr();                                  // LoRa 软串口起始位
+    }
 }
 
 /* Exported functions --------------------------------------------------------*/
@@ -136,17 +184,25 @@ void lora_init(void)
     HAL_GPIO_WritePin(BOARD_LORA_TX_PORT, BOARD_LORA_TX_PIN, GPIO_PIN_SET);
 
     /*==============================
-     *  #3. RX 与 AUX 做上拉输入
+     *  #3. RX 配成下降沿外部中断：软件串口靠中断精确捕获起始位，
+     *     纯轮询每 1ms 才看一次，而起始位只有约 104µs，必然频繁踩空
      *==============================*/
     init.Pin   = BOARD_LORA_RX_PIN;
-    init.Mode  = GPIO_MODE_INPUT;
+    init.Mode  = GPIO_MODE_IT_FALLING;
     init.Pull  = GPIO_PULLUP;
-    init.Speed = GPIO_SPEED_FREQ_LOW;
+    init.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(BOARD_LORA_RX_PORT, &init);
 
+    HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5U, 0U);        // PB5 属于 EXTI9_5 中断组
+    HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
+    /*==============================
+     *  #3.1 AUX 做上拉输入
+     *==============================*/
     init.Pin   = BOARD_LORA_AUX_PIN;
     init.Mode  = GPIO_MODE_INPUT;
     init.Pull  = GPIO_PULLUP;
+    init.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(BOARD_LORA_AUX_PORT, &init);
 
     /*==============================
@@ -189,12 +245,17 @@ void lora_send(const uint8_t *data, uint16_t len)
     }
 
     /*==============================
-     *  #2. 模块空闲检查（AUX 为低表示模块忙）
+     *  #2. 模块忙闲检查：AUX 为低表示模块忙，最多等 20ms 再照发
      *==============================*/
-    if (HAL_GPIO_ReadPin(BOARD_LORA_AUX_PORT, BOARD_LORA_AUX_PIN) == GPIO_PIN_RESET)
     {
-        LOG_WARNING("LoRa 模块忙，本次发送已放弃");
-        return;
+        uint32_t wait_us = 0U;
+
+        while ((HAL_GPIO_ReadPin(BOARD_LORA_AUX_PORT, BOARD_LORA_AUX_PIN) == GPIO_PIN_RESET) &&
+               (wait_us < 20000U))
+        {
+            delay_us(100U);                             // 等 100µs 再看一眼
+            wait_us += 100U;
+        }
     }
 
     /*==============================
@@ -221,54 +282,26 @@ void lora_send(const uint8_t *data, uint16_t len)
 
 /*******************************************************************************
  * 函数名：lora_poll
- * 功  能：接收轮询：空闲超时判定帧结束；检测起始位并采样一个字节入缓冲
+ * 功  能：接收轮询：判定一帧是否接收完毕（采样实际由 lora_rx_isr 在中断里完成）
  * 参  数：无
  * 返回值：无
- * 说  明：由通信任务周期调用；检测到起始位时本函数会占用约 1 毫秒
+ * 说  明：起始位由 PB5 下降沿中断精确捕获，本函数只负责“线路安静足够久
+ *          就把这一帧交给上层”，可以低频调用，不再依赖轮询时机是否踩准
  ******************************************************************************/
 void lora_poll(void)
 {
-    uint8_t data;
+    taskENTER_CRITICAL();
 
     /*==============================
-     *  #1. 空闲超时判定：线路安静且缓冲有数据，则一帧接收完毕
+     *  #1. 尚无待取帧且线路已安静足够久，则本帧接收完毕
      *==============================*/
-    if ((s_rx_len > 0U) && ((xTaskGetTickCount() - s_last_rx_tick) >= pdMS_TO_TICKS(LORA_FRAME_IDLE_MS)))
+    if ((s_rx_len > 0U) && (s_rx_ready == false) &&
+        ((xTaskGetTickCount() - s_last_rx_tick) >= pdMS_TO_TICKS(LORA_FRAME_IDLE_MS)))
     {
         s_rx_ready = true;                              // 交给上层取走
     }
 
-    /*==============================
-     *  #2. 起始位检测：先等半个位，确认不是毛刺
-     *==============================*/
-    if (lora_rx_line_low() == false)
-    {
-        return;                                         // 线路空闲
-    }
-
-    delay_us(LORA_BIT_TIME_US / 2U);
-
-    if (lora_rx_line_low() == false)
-    {
-        return;                                         // 半个位后已回到高，判为毛刺
-    }
-
-    /*==============================
-     *  #3. 采样一个字节并存入缓冲
-     *==============================*/
-    data = lora_rx_byte();
-
-    if (s_rx_len < LORA_RX_BUF_SIZE)
-    {
-        s_rx_buf[s_rx_len++] = data;
-    }
-    else
-    {
-        s_rx_len = 0U;                                  // 缓冲溢出，丢弃本帧
-    }
-
-    s_rx_bytes++;                                       // 累计接收字节数（诊断）
-    s_last_rx_tick = xTaskGetTickCount();
+    taskEXIT_CRITICAL();
 }
 
 /*******************************************************************************
