@@ -8,8 +8,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "tasks.h"
 #include "uart485.h"
-#include "board.h"
-#include "delay_us.h"
 #include "usart.h"
 #include "protocol.h"
 #include "log.h"
@@ -20,7 +18,6 @@
 /* Private define ------------------------------------------------------------*/
 #define COMM_POLL_MS        20U     // 收帧与上报节拍检查周期（毫秒）
 #define COMM_RESTART_MS     300U    // 重启前等待应答发出的时间（毫秒）
-#define COMM_PC_TEST_MS   200U    // 【调试】串口3 测试帧发送周期(ms)，定位后删除
 
 /* Exported functions --------------------------------------------------------*/
 
@@ -37,48 +34,13 @@ void TaskComm(void *argument)
     uint16_t   len;
     TickType_t last_wake_tick;
     TickType_t restart_tick;
-    TickType_t stat_tick;                               // 诊断统计打印节拍
-    TickType_t pc_test_tick;                            // 【调试】串口3 循环测试节拍
     bool       restart_waiting;
 
     LOG_INFO("通信任务已启动");
-    last_wake_tick = xTaskGetTickCount();               // 记录周期起点
+
+    last_wake_tick  = xTaskGetTickCount();              // 记录周期起点
     restart_waiting = false;                            // 尚未收到重启请求
-    stat_tick       = xTaskGetTickCount();
-    pc_test_tick    = xTaskGetTickCount();
-
-    /*==============================
-     *  #0. 上电自检：主动发一帧，验证 485 发送方向是否正常
-     *==============================*/
-    {
-        static const uint8_t test_msg[] = "DY-PWR-485-TEST\r\n";
-
-        if (uart485_send(&huart2, test_msg, (uint16_t)(sizeof(test_msg) - 1U)))
-        {
-            LOG_INFO("已发送 485 自检帧，请确认 485 侧是否收到 DY-PWR-485-TEST");
-        }
-        else
-        {
-            LOG_ERROR("485 自检帧发送失败");
-        }
-    }
-
-    /*==============================
-     *  #0.2 上电自检：串口3（工控机链路）发一帧，验证这一路是否通
-     *==============================*/
-    {
-        static const uint8_t test_msg3[] = "DY-PC485-TEST\r\n";
-
-        if (uart485_send(&huart3, test_msg3, (uint16_t)(sizeof(test_msg3) - 1U)))
-        {
-            LOG_INFO("已发送串口3 自检帧，请在工控机链路（U3）确认是否收到 DY-PC485-TEST");
-        }
-        else
-        {
-            LOG_ERROR("串口3 自检帧发送失败");
-        }
-    }
-    restart_tick    = 0;
+    restart_tick    = 0U;
 
     /*==============================
      *  #1. 任务主循环（永不退出）
@@ -101,65 +63,6 @@ void TaskComm(void *argument)
         /*==============================
          *  #3. 定时上报节拍检查（每小时第 53 分）
          *==============================*/
-        /*==============================
-         *  #3.1 每 5 秒打印 485 收发统计（现场排查用）
-         *==============================*/
-        if ((xTaskGetTickCount() - stat_tick) >= pdMS_TO_TICKS(5000))
-        {
-            stat_tick = xTaskGetTickCount();
-            LOG_INFO("485统计 收字节=%lu 空闲=%lu 发送=%lu 帧就绪=%u",
-                     (unsigned long)uart485_get_rx_bytes(),
-                     (unsigned long)uart485_get_idle_count(),
-                     (unsigned long)uart485_get_tx_count(),
-                     (unsigned)(uart485_rx_ready() ? 1U : 0U));
-        }
-
-        /*==============================
-         *  #2.1 【调试】每 5 秒向串口3 发一帧，并打印两个控制脚电平
-         *      —— 用于判断是“链路不通”还是“没触发关机流程”，确认后删除
-         *==============================*/
-        if ((xTaskGetTickCount() - pc_test_tick) >= pdMS_TO_TICKS(COMM_PC_TEST_MS))
-        {
-            static const uint8_t pc_test[] = "PC-LINK-TEST\r\n";
-            static uint32_t pc_test_cnt = 0U;       // 累计发送次数
-            static uint32_t pc_test_ok = 0U;        // 累计成功次数
-            static uint32_t pc_test_fail = 0U;      // 累计失败次数
-
-            pc_test_tick = xTaskGetTickCount();
-            pc_test_cnt++;
-
-            /* 诊断信息每 25 帧（约 5 秒）打印一次，避免刷屏 */
-            if ((pc_test_cnt % 25U) == 1U)
-            {
-                LOG_INFO("USART3 诊断：BRR=0x%04X PCLK1=%luHz CR1=0x%04X(UE=%d TE=%d) gState=%d",
-                         (unsigned)huart3.Instance->BRR,
-                         (unsigned long)HAL_RCC_GetPCLK1Freq(),
-                         (unsigned)huart3.Instance->CR1,
-                         (int)((huart3.Instance->CR1 >> 13) & 1U),
-                         (int)((huart3.Instance->CR1 >> 3) & 1U),
-                         (int)huart3.gState);
-
-                LOG_INFO("串口3 状态：U3_DIR(PE15)=%d  EN_U3(PG1)=%d  累计发送 成功=%lu 失败=%lu",
-                         (int)HAL_GPIO_ReadPin(BOARD_U3_DIR_PORT, BOARD_U3_DIR_PIN),
-                         (int)HAL_GPIO_ReadPin(BOARD_U3_EN_PORT, BOARD_U3_EN_PIN),
-                         (unsigned long)pc_test_ok,
-                         (unsigned long)pc_test_fail);
-            }
-
-            /* 【调试】同时向 USART2 发同一帧：用同一台逻辑分析仪同时抓 PA2 与 PB10，
-               若 PA2 有波形而 PB10 没有，即可确证是 PB10 这一路的问题 */
-            (void)uart485_send(&huart2, pc_test, (uint16_t)(sizeof(pc_test) - 1U));
-
-            if (uart485_send(&huart3, pc_test, (uint16_t)(sizeof(pc_test) - 1U)))
-            {
-                pc_test_ok++;
-            }
-            else
-            {
-                pc_test_fail++;
-            }
-        }
-
         protocol_report_check();
 
         /*==============================
@@ -182,7 +85,7 @@ void TaskComm(void *argument)
         }
 
         /*==============================
-         *  #5. 等到下一个处理周期
+         *  #5. 上报心跳并等到下一个处理周期
          *==============================*/
         wdg_kick(WDG_BIT_COMM);                             // 上报心跳（通信任务）
         vTaskDelayUntil(&last_wake_tick, pdMS_TO_TICKS(COMM_POLL_MS));
