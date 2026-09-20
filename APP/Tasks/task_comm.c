@@ -122,9 +122,25 @@ void TaskComm(void *argument)
 
             pc_test_tick = xTaskGetTickCount();
 
+            LOG_INFO("USART3 诊断：CR1=0x%04X(UE=%d TE=%d) gState=%d",
+                     (unsigned)huart3.Instance->CR1,
+                     (int)((huart3.Instance->CR1 >> 13) & 1U),
+                     (int)((huart3.Instance->CR1 >> 3) & 1U),
+                     (int)huart3.gState);
+
             LOG_INFO("串口3 状态：U3_DIR(PE15)=%d  EN_U3(PG1)=%d",
                      (int)HAL_GPIO_ReadPin(BOARD_U3_DIR_PORT, BOARD_U3_DIR_PIN),
                      (int)HAL_GPIO_ReadPin(BOARD_U3_EN_PORT, BOARD_U3_EN_PIN));
+
+            /* 【调试】绕过 485 封装直接用 HAL 发一次：区分是 HAL 层还是封装层问题 */
+            if (HAL_UART_Transmit(&huart3, (uint8_t *)pc_test, (uint16_t)(sizeof(pc_test) - 1U), 100U) == HAL_OK)
+            {
+                LOG_INFO("串口3 裸发送（不经 485 封装）成功");
+            }
+            else
+            {
+                LOG_ERROR("串口3 裸发送（不经 485 封装）失败");
+            }
 
             if (uart485_send(&huart3, pc_test, (uint16_t)(sizeof(pc_test) - 1U)))
             {
