@@ -110,6 +110,7 @@ static proto_ack_t  s_ack;                              // 应答包缓冲
 static proto_star_t s_star;                             // 上报包缓冲
 static proto_str_t  s_str;                              // 规则包缓冲
 static uint8_t      s_last_report_minute = 0xFFU;       // 上次上报的分钟（防重复）
+static TickType_t   s_last_period_tick = 0U;            // 工控机开启期间的周期上报计时
 static bool         s_restart_pending   = false;        // 是否有重启请求
 static proto_channel_t s_reply_channel = PROTO_CH_485;  // 当前应答走哪条链路（收帧时记录）
 
@@ -660,25 +661,47 @@ void protocol_report_state(void)
 
 /*******************************************************************************
  * 函数名：protocol_report_check
- * 功  能：定时上报节拍检查（每小时第 53 分、前 10 秒内上报一次）
+ * 功  能：定时上报节拍检查：整点窗口上报 + 工控机开启期间每 2 分钟上报
  * 参  数：无
  * 返回值：无
- * 说  明：由通信任务每秒调用一次；同一分钟内只上报一次
+ * 说  明：由通信任务周期调用。授时无效时一律不上报——第一包必须等校时
+ *          成功后再发，否则上报出去的日期时间是没意义的
  ******************************************************************************/
 void protocol_report_check(void)
 {
     app_time_t t;
 
     /*==============================
-     *  #1. 读取当前时间
+     *  #1. 授时无效则不上报（第一包要等校时成功）
      *==============================*/
+    if (time_service_is_reliable() == false)
+    {
+        return;
+    }
+
     if (time_service_get(&t) == false)
     {
         return;                                             // 读时间失败
     }
 
     /*==============================
-     *  #2. 检查是否进入上报窗口
+     *  #2. 工控机开启期间：每 2 分钟上报一次
+     *==============================*/
+    if (board_power_get(DEV_IPC))
+    {
+        if ((xTaskGetTickCount() - s_last_period_tick) >= pdMS_TO_TICKS(PROTO_REPORT_PC_PERIOD_MS))
+        {
+            s_last_period_tick = xTaskGetTickCount();       // 重新计时
+            protocol_report_state();                        // 周期上报一次
+        }
+    }
+    else
+    {
+        s_last_period_tick = xTaskGetTickCount();           // 工控机关闭，重新开启后从头计时
+    }
+
+    /*==============================
+     *  #3. 整点窗口：每小时第 53 分、前 10 秒内上报一次
      *==============================*/
     if ((t.minute == PROTO_REPORT_MINUTE) &&
         (t.second <= PROTO_REPORT_WINDOW_SEC))

@@ -34,6 +34,7 @@ extern "C" {
 /* 上报配置（与旧版本一致） */
 #define PROTO_REPORT_MINUTE      53U    // 每小时第 53 分上报
 #define PROTO_REPORT_WINDOW_SEC  10U    // 上报时间窗口（秒）
+#define PROTO_REPORT_PC_PERIOD_MS 120000U // 工控机开启期间的上报周期（毫秒，2 分钟）
 
 /* 协议链路通道：同一套协议可跑在不同物理链路上，应答需从收到的链路原路返回 */
 typedef enum
