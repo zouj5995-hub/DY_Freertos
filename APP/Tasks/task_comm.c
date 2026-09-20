@@ -20,6 +20,7 @@
 /* Private define ------------------------------------------------------------*/
 #define COMM_POLL_MS        20U     // 收帧与上报节拍检查周期（毫秒）
 #define COMM_RESTART_MS     300U    // 重启前等待应答发出的时间（毫秒）
+#define COMM_PC_TEST_MS   200U    // 【调试】串口3 测试帧发送周期(ms)，定位后删除
 
 /* Exported functions --------------------------------------------------------*/
 
@@ -117,57 +118,45 @@ void TaskComm(void *argument)
          *  #2.1 【调试】每 5 秒向串口3 发一帧，并打印两个控制脚电平
          *      —— 用于判断是“链路不通”还是“没触发关机流程”，确认后删除
          *==============================*/
-        if ((xTaskGetTickCount() - pc_test_tick) >= pdMS_TO_TICKS(5000))
+        if ((xTaskGetTickCount() - pc_test_tick) >= pdMS_TO_TICKS(COMM_PC_TEST_MS))
         {
             static const uint8_t pc_test[] = "PC-LINK-TEST\r\n";
+            static uint32_t pc_test_cnt = 0U;       // 累计发送次数
+            static uint32_t pc_test_ok = 0U;        // 累计成功次数
+            static uint32_t pc_test_fail = 0U;      // 累计失败次数
 
             pc_test_tick = xTaskGetTickCount();
+            pc_test_cnt++;
 
-            /* 【调试】读 GPIOB 配置寄存器，确认 PB10 是否被配成复用推挽(B) */
-            LOG_INFO("GPIOB->CRH=0x%08lX  PB10配置位=%lX (B=复用推挽 8=普通推挽 4=浮空输入 1=推挽输出)",
-                     (unsigned long)GPIOB->CRH,
-                     (unsigned long)((GPIOB->CRH >> 8) & 0xFU));
-
-            /* 【调试】手动翻转 PB10：若电平跟着变，说明它是普通 GPIO（复用没生效） */
-            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-            delay_us(500U);
+            /* 诊断信息每 25 帧（约 5 秒）打印一次，避免刷屏 */
+            if ((pc_test_cnt % 25U) == 1U)
             {
-                GPIO_PinState s_low = HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_10);
+                LOG_INFO("USART3 诊断：BRR=0x%04X PCLK1=%luHz CR1=0x%04X(UE=%d TE=%d) gState=%d",
+                         (unsigned)huart3.Instance->BRR,
+                         (unsigned long)HAL_RCC_GetPCLK1Freq(),
+                         (unsigned)huart3.Instance->CR1,
+                         (int)((huart3.Instance->CR1 >> 13) & 1U),
+                         (int)((huart3.Instance->CR1 >> 3) & 1U),
+                         (int)huart3.gState);
 
-                HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-                delay_us(500U);
-
-                LOG_INFO("PB10 翻转测试：写入低后读到=%d (0=受GPIO控制即复用未生效, 1=复用输出正常)",
-                         (int)s_low);
+                LOG_INFO("串口3 状态：U3_DIR(PE15)=%d  EN_U3(PG1)=%d  累计发送 成功=%lu 失败=%lu",
+                         (int)HAL_GPIO_ReadPin(BOARD_U3_DIR_PORT, BOARD_U3_DIR_PIN),
+                         (int)HAL_GPIO_ReadPin(BOARD_U3_EN_PORT, BOARD_U3_EN_PIN),
+                         (unsigned long)pc_test_ok,
+                         (unsigned long)pc_test_fail);
             }
 
-            LOG_INFO("USART3 诊断：CR1=0x%04X(UE=%d TE=%d) gState=%d",
-                     (unsigned)huart3.Instance->CR1,
-                     (int)((huart3.Instance->CR1 >> 13) & 1U),
-                     (int)((huart3.Instance->CR1 >> 3) & 1U),
-                     (int)huart3.gState);
-
-            LOG_INFO("串口3 状态：U3_DIR(PE15)=%d  EN_U3(PG1)=%d",
-                     (int)HAL_GPIO_ReadPin(BOARD_U3_DIR_PORT, BOARD_U3_DIR_PIN),
-                     (int)HAL_GPIO_ReadPin(BOARD_U3_EN_PORT, BOARD_U3_EN_PIN));
-
-            /* 【调试】绕过 485 封装直接用 HAL 发一次：区分是 HAL 层还是封装层问题 */
-            if (HAL_UART_Transmit(&huart3, (uint8_t *)pc_test, (uint16_t)(sizeof(pc_test) - 1U), 100U) == HAL_OK)
-            {
-                LOG_INFO("串口3 裸发送（不经 485 封装）成功");
-            }
-            else
-            {
-                LOG_ERROR("串口3 裸发送（不经 485 封装）失败");
-            }
+            /* 【调试】同时向 USART2 发同一帧：用同一台逻辑分析仪同时抓 PA2 与 PB10，
+               若 PA2 有波形而 PB10 没有，即可确证是 PB10 这一路的问题 */
+            (void)uart485_send(&huart2, pc_test, (uint16_t)(sizeof(pc_test) - 1U));
 
             if (uart485_send(&huart3, pc_test, (uint16_t)(sizeof(pc_test) - 1U)))
             {
-                LOG_INFO("串口3 测试帧发送成功（PC-LINK-TEST）");
+                pc_test_ok++;
             }
             else
             {
-                LOG_ERROR("串口3 测试帧发送失败");
+                pc_test_fail++;
             }
         }
 
