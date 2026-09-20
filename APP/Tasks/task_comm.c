@@ -8,6 +8,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "tasks.h"
 #include "uart485.h"
+#include "lora_softuart.h"
 #include "usart.h"
 #include "protocol.h"
 #include "log.h"
@@ -56,7 +57,22 @@ void TaskComm(void *argument)
 
             if (len > 0U)
             {
-                protocol_handle_frame(frame, len);      // 解析并执行命令
+                protocol_handle_frame(frame, len, PROTO_CH_485);   // 解析并执行命令
+            }
+        }
+
+        /*==============================
+         *  #2.1 取走 LoRa 链路（现场调试通道）的完整帧
+         *==============================*/
+        lora_poll();                                            // 连续采样，凑齐一帧后返回
+
+        if (lora_rx_ready())
+        {
+            len = lora_rx_take(frame, (uint16_t)sizeof(frame));
+
+            if (len > 0U)
+            {
+                protocol_handle_frame(frame, len, PROTO_CH_LORA);   // 与 485 同一套协议
             }
         }
 

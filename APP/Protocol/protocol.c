@@ -8,6 +8,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "protocol.h"
 #include "uart485.h"
+#include "lora_softuart.h"
 #include "board.h"
 #include "rule_store.h"
 #include "time_service.h"
@@ -101,6 +102,7 @@ typedef struct
     const char *header;                             // 协议头
     void (*handler)(const uint8_t *buf, uint16_t len);   // 处理函数
     uint8_t need_crc;                               // 是否需要校验
+    uint8_t has_boat;                               // 是否带船只编号（船号紧跟协议头之后）
 } proto_entry_t;
 
 /* Private variables ---------------------------------------------------------*/
@@ -109,10 +111,12 @@ static proto_star_t s_star;                             // 上报包缓冲
 static proto_str_t  s_str;                              // 规则包缓冲
 static uint8_t      s_last_report_minute = 0xFFU;       // 上次上报的分钟（防重复）
 static bool         s_restart_pending   = false;        // 是否有重启请求
+static proto_channel_t s_reply_channel = PROTO_CH_485;  // 当前应答走哪条链路（收帧时记录）
 
 /* Private functions prototypes ----------------------------------------------*/
 static uint16_t proto_crc16(const uint8_t *ptr, uint16_t len);                  // 计算 CRC16
 static uint8_t  proto_sensor_state(void);                                       // 读取设备开关状态位
+static void     proto_reply(const uint8_t *data, uint16_t len);                 // 从“收到帧的那条链路”发回应答
 static void     proto_send_ack(uint8_t type, uint8_t error);                    // 发送应答包
 static void     proto_pack_star(void);                                          // 打包状态上报包
 static void     proto_pack_str(void);                                           // 打包规则包
@@ -122,15 +126,16 @@ static void     proto_cmd_read_state(const uint8_t *buf, uint16_t len);         
 static void     proto_cmd_get_rules(const uint8_t *buf, uint16_t len);          // 读控制策略
 static void     proto_cmd_restart(const uint8_t *buf, uint16_t len);            // 重启系统
 
-/* 协议表：协议头 -> 处理函数（沿用旧版本的表驱动设计） */
+/* 协议表：协议头 -> 处理函数（沿用旧版本的表驱动设计）
+   has_boat=1 表示该命令帧在协议头之后紧跟 1 字节船只编号，需按船号过滤 */
 static const proto_entry_t s_proto_table[] =
 {
-    { "$BDRMC",  proto_cmd_bd_time,    0U },    // 北斗校时数据（无校验）
-    { "$STR",    proto_cmd_set_rules,  1U },    // 下发控制策略（CRC16）
-    { "$READ",   proto_cmd_read_state, 1U },    // 读取设备状态（CRC16）
-    { "$GETSTR", proto_cmd_get_rules,  1U },    // 读取控制策略（CRC16）
-    { "$REST",   proto_cmd_restart,    0U },    // 重启系统（无校验）
-    { NULL,      NULL,                 0U }     // 结束标记
+    { "$BDRMC",  proto_cmd_bd_time,    0U, 0U },    // 北斗校时数据（无校验、无船号）
+    { "$STR",    proto_cmd_set_rules,  1U, 1U },    // 下发控制策略（CRC16 + 船号）
+    { "$READ",   proto_cmd_read_state, 1U, 1U },    // 读取设备状态（CRC16 + 船号）
+    { "$GETSTR", proto_cmd_get_rules,  1U, 1U },    // 读取控制策略（CRC16 + 船号）
+    { "$REST",   proto_cmd_restart,    0U, 1U },    // 重启系统（无校验 + 船号）
+    { NULL,      NULL,                 0U, 0U }     // 结束标记
 };
 
 /* Private functions ---------------------------------------------------------*/
@@ -197,6 +202,29 @@ static uint8_t proto_sensor_state(void)
 }
 
 /*******************************************************************************
+ * 函数名：proto_reply
+ * 功  能：从“收到本帧的那条链路”把数据发回去
+ * 参  数：data —— 待发数据；len —— 字节数
+ * 返回值：无
+ * 说  明：485 链路与 LoRa 链路跑同一套协议，应答必须原路返回，
+ *          否则现场用 LoRa 调试时收不到应答
+ ******************************************************************************/
+static void proto_reply(const uint8_t *data, uint16_t len)
+{
+    /*==============================
+     *  #1. 按收帧时记录的链路选择发送通道
+     *==============================*/
+    if (s_reply_channel == PROTO_CH_LORA)
+    {
+        lora_send(data, len);                               // 无线调试链路
+    }
+    else
+    {
+        (void)uart485_send(&huart2, data, len);             // 北斗/服务器 485 链路
+    }
+}
+
+/*******************************************************************************
  * 函数名：proto_send_ack
  * 功  能：组装并发送应答包
  * 参  数：type  —— 0 策略指令，1 控制指令
@@ -217,9 +245,9 @@ static void proto_send_ack(uint8_t type, uint8_t error)
     memcpy(s_ack.end, "$OVER", 5U);                         // 结束符号
 
     /*==============================
-     *  #2. 发送
+     *  #2. 从收到命令的那条链路发回
      *==============================*/
-    (void)uart485_send(&huart2, (const uint8_t *)&s_ack, PROTO_ACK_LEN);
+    proto_reply((const uint8_t *)&s_ack, PROTO_ACK_LEN);
 }
 
 /*******************************************************************************
@@ -469,7 +497,7 @@ static void proto_cmd_read_state(const uint8_t *buf, uint16_t len)
      *  #2. 发送状态包
      *==============================*/
     proto_pack_star();                                      // 组装状态包
-    (void)uart485_send(&huart2, (const uint8_t *)&s_star, PROTO_STAR_LEN);
+    proto_reply((const uint8_t *)&s_star, PROTO_STAR_LEN);  // 从收到请求的那条链路回
 }
 
 /*******************************************************************************
@@ -489,7 +517,7 @@ static void proto_cmd_get_rules(const uint8_t *buf, uint16_t len)
     /*==============================
      *  #2. 发送整个规则包
      *==============================*/
-    (void)uart485_send(&huart2, (const uint8_t *)&s_str, PROTO_STR_LEN);
+    proto_reply((const uint8_t *)&s_str, PROTO_STR_LEN);    // 从收到请求的那条链路回
 
     LOG_INFO("已回复控制策略包");
 }
@@ -542,15 +570,17 @@ void protocol_init(void)
  * 返回值：无
  * 说  明：表驱动匹配协议头；需要校验的协议先校验 CRC 再执行
  ******************************************************************************/
-void protocol_handle_frame(const uint8_t *buf, uint16_t len)
+void protocol_handle_frame(const uint8_t *buf, uint16_t len, proto_channel_t ch)
 {
     /*==============================
-     *  #1. 参数检查
+     *  #1. 参数检查，并记录本帧来自哪条链路（应答要原路返回）
      *==============================*/
     if ((buf == NULL) || (len < 7U))
     {
         return;                                             // 太短不可能是一帧
     }
+
+    s_reply_channel = ch;
 
     LOG_INFO("收到帧：%u 字节，头部=%.8s", (unsigned)len, (const char *)buf);   // 只打印长度与协议头
 
@@ -567,7 +597,22 @@ void protocol_handle_frame(const uint8_t *buf, uint16_t len)
         }
 
         /*==============================
-         *  #3. 需要校验的先验 CRC
+         *  #3. 船号过滤：不是发给本船的帧直接忽略
+         *==============================*/
+        if ((s_proto_table[i].has_boat != 0U) && (len > hdr_len))
+        {
+            uint8_t boat = buf[hdr_len];                    // 船号紧跟协议头之后
+
+            if (boat != PROTO_BOAT_NUMBER)
+            {
+                LOG_INFO("船号不匹配（收到 %u，本船 %u），已忽略",
+                         (unsigned)boat, (unsigned)PROTO_BOAT_NUMBER);
+                return;
+            }
+        }
+
+        /*==============================
+         *  #4. 需要校验的先验 CRC
          *==============================*/
         if (s_proto_table[i].need_crc == 1U)
         {
@@ -584,14 +629,14 @@ void protocol_handle_frame(const uint8_t *buf, uint16_t len)
         }
 
         /*==============================
-         *  #4. 执行命令处理函数
+         *  #5. 执行命令处理函数
          *==============================*/
         s_proto_table[i].handler(buf, len);
         return;
     }
 
     /*==============================
-     *  #5. 未匹配到任何协议
+     *  #6. 未匹配到任何协议
      *==============================*/
     LOG_WARNING("收到未知协议，已丢弃");
 }

@@ -36,6 +36,7 @@
 #include "power.h"
 #include "power_apply.h"
 #include "uart485.h"
+#include "lora_softuart.h"
 #include "protocol.h"
 #include "wdg_service.h"
 /* USER CODE END Includes */
@@ -120,6 +121,7 @@ int main(void)
   power_init();                                         // 供电决策层（载入规则表）
   uart485_init();                                       // 485 方向控制与发送互斥量
   uart485_start_rx();                                   // 启动 USART2 接收中断
+    lora_init();                                          // LoRa 软串口（现场调试通道）
   power_apply_init();                                   // 供电执行层（输出状态清零）
   protocol_init();                                      // 协议层状态复位
   wdg_service_init();                                   // 看门狗心跳事件组

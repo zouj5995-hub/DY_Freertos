@@ -18,6 +18,7 @@
 
 /* Private define ------------------------------------------------------------*/
 #define LORA_BIT_TIME_US    (1000000U / BOARD_LORA_BAUD)   // 一个位的时间（微秒）
+#define LORA_POLL_MAX_MS    300U                         // 单次轮询最长占用时间（毫秒）
 
 /* Private variables ---------------------------------------------------------*/
 static uint8_t    s_rx_buf[LORA_RX_BUF_SIZE];      // 接收缓冲
