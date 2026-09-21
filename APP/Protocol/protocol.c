@@ -418,7 +418,10 @@ static void proto_cmd_set_rules(const uint8_t *buf, uint16_t len)
         rules[i].start_h       = p[0];                                  // 开始时
         rules[i].start_m       = p[1];                                  // 开始分
         rules[i].start_s       = p[2];                                  // 开始秒
-        rules[i].work_sec      = (uint16_t)p[3] | ((uint16_t)p[4] << 8); // 工作时长（小端）
+        /* ⚠️ 工作时长为【大端】：高字节在前。必须与平台/旧版程序一致：
+         *    旧版 protocol.c 的解析为 uart2_rx_buf[j-1] | (uart2_rx_buf[j-2] << 8)
+         *    此处曾误写成小端，导致所有规则的时长被读错（设备该开时不开）。 */
+        rules[i].work_sec      = ((uint16_t)p[3] << 8) | (uint16_t)p[4]; // 工作时长（大端）
         rules[i].target_device = p[5];                                  // 目标设备
     }
 
