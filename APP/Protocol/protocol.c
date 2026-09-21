@@ -436,6 +436,27 @@ static void proto_cmd_set_rules(const uint8_t *buf, uint16_t len)
      *  #4. 结果只记日志，不回 $ACK（任何情况都不回应答）
      *==============================*/
     LOG_INFO("下发策略处理%s", ok ? "成功" : "失败");
+
+    /*==============================
+     *  #5. 【临时诊断】把收到的规则表原样打印，便于核对平台下发内容
+     *      —— 确认后可删除
+     *==============================*/
+    if (ok)
+    {
+        for (uint8_t i = 0U; i < PROTO_RULE_COUNT; i++)
+        {
+            if (rules[i].target_device != RULE_DEVICE_INVALID)      // 只打印有效规则
+            {
+                LOG_INFO("规则%02u: %02u:%02u:%02u 起 %u 秒 -> 目标码 0x%02X",
+                         (unsigned)(i + 1U),
+                         (unsigned)rules[i].start_h,
+                         (unsigned)rules[i].start_m,
+                         (unsigned)rules[i].start_s,
+                         (unsigned)rules[i].work_sec,
+                         (unsigned)rules[i].target_device);
+            }
+        }
+    }
 }
 
 /*******************************************************************************
@@ -453,7 +474,7 @@ static void proto_cmd_read_state(const uint8_t *buf, uint16_t len)
     proto_pack_star();                                      // 组装状态包
     proto_reply((const uint8_t *)&s_star, PROTO_STAR_LEN);  // 从收到请求的那条链路回
 
-    LOG_INFO("$READ 应答：已回 $ACK 与 $STAR（%u 字节）", (unsigned)PROTO_STAR_LEN);   // 现场排查用，仅日志
+    LOG_INFO("$READ 已回状态包（%u 字节）", (unsigned)PROTO_STAR_LEN);   // 不回 $ACK
 }
 
 /*******************************************************************************
