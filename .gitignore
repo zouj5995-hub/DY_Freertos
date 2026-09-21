@@ -1,4 +1,4 @@
-*.o
+﻿*.o
 *.obj
 *.elf
 *.bin
@@ -29,3 +29,14 @@ MDK-ARM/DY_FreeRTOS/
 *.uvprojx.bak*
 # 对话/笔记导出（不入版本库）
 DY - *.md
+
+# ===== Android 构建产物与缓存（不入版本库）=====
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
