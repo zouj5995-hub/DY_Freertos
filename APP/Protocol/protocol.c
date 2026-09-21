@@ -44,20 +44,6 @@
 /* Private types -------------------------------------------------------------*/
 
 /*******************************************************************************
- * 名称  ：proto_ack_t
- * 功能  ：应答包结构（14 字节，与旧版本一致）
- ******************************************************************************/
-typedef struct __attribute__((packed))
-{
-    uint8_t  start[4];      // "$ACK"
-    uint8_t  type;          // 0:策略指令 1:控制指令
-    uint8_t  device;        // 船只编号
-    uint8_t  error;         // 0:成功 1:失败
-    uint16_t crc16;         // CRC16 校验码（大端）
-    uint8_t  end[5];        // "$OVER"
-} proto_ack_t;
-
-/*******************************************************************************
  * 名称  ：proto_star_t
  * 功能  ：状态上报包结构（30 字节，与旧版本一致）
  ******************************************************************************/
@@ -107,7 +93,6 @@ typedef struct
 } proto_entry_t;
 
 /* Private variables ---------------------------------------------------------*/
-static proto_ack_t  s_ack;                              // 应答包缓冲
 static proto_star_t s_star;                             // 上报包缓冲
 static proto_str_t  s_str;                              // 规则包缓冲
 static uint8_t      s_last_report_minute = 0xFFU;       // 上次上报的分钟（防重复）
@@ -119,7 +104,6 @@ static proto_channel_t s_reply_channel = PROTO_CH_485;  // 当前应答走哪条
 static uint16_t proto_crc16(const uint8_t *ptr, uint16_t len);                  // 计算 CRC16
 static uint8_t  proto_sensor_state(void);                                       // 读取设备开关状态位
 static void     proto_reply(const uint8_t *data, uint16_t len);                 // 从“收到帧的那条链路”发回应答
-static void     proto_send_ack(uint8_t type, uint8_t error);                    // 发送应答包
 static void     proto_pack_star(void);                                          // 打包状态上报包
 static void     proto_pack_str(void);                                           // 打包规则包
 static void     proto_cmd_bd_time(const uint8_t *buf, uint16_t len);            // 北斗校时
@@ -224,32 +208,6 @@ static void proto_reply(const uint8_t *data, uint16_t len)
     {
         (void)uart485_send(&huart2, data, len);             // 北斗/服务器 485 链路
     }
-}
-
-/*******************************************************************************
- * 函数名：proto_send_ack
- * 功  能：组装并发送应答包
- * 参  数：type  —— 0 策略指令，1 控制指令
- *         error —— 0 成功，1 失败
- * 返回值：无
- * 说  明：CRC 覆盖除 crc16 与结束符之外的全部内容
- ******************************************************************************/
-static void proto_send_ack(uint8_t type, uint8_t error)
-{
-    /*==============================
-     *  #1. 组装应答包
-     *==============================*/
-    memcpy(s_ack.start, "$ACK", 4U);                        // 开始符号
-    s_ack.type   = type;                                    // 指令类型
-    s_ack.device = PROTO_BOAT_NUMBER;                       // 船只编号
-    s_ack.error  = error;                                   // 结果码
-    s_ack.crc16  = proto_crc16((const uint8_t *)&s_ack, PROTO_ACK_LEN - 7U);   // 校验码
-    memcpy(s_ack.end, "$OVER", 5U);                         // 结束符号
-
-    /*==============================
-     *  #2. 从收到命令的那条链路发回
-     *==============================*/
-    proto_reply((const uint8_t *)&s_ack, PROTO_ACK_LEN);
 }
 
 /*******************************************************************************
@@ -446,8 +404,7 @@ static void proto_cmd_set_rules(const uint8_t *buf, uint16_t len)
      *==============================*/
     if (len != PROTO_STR_LEN)
     {
-        LOG_WARNING("下发策略包长度错误：%u", (unsigned)len);
-        proto_send_ack(0U, PROTO_ACK_ERROR);                // 回失败应答
+        LOG_WARNING("下发策略包长度错误：%u", (unsigned)len);   // 不回 $ACK（任何情况都不回应答）
         return;
     }
 
@@ -476,10 +433,8 @@ static void proto_cmd_set_rules(const uint8_t *buf, uint16_t len)
     }
 
     /*==============================
-     *  #4. 应答结果
+     *  #4. 结果只记日志，不回 $ACK（任何情况都不回应答）
      *==============================*/
-    proto_send_ack(0U, ok ? PROTO_ACK_OK : PROTO_ACK_ERROR);
-
     LOG_INFO("下发策略处理%s", ok ? "成功" : "失败");
 }
 
@@ -488,17 +443,12 @@ static void proto_cmd_set_rules(const uint8_t *buf, uint16_t len)
  * 功  能：处理读设备状态请求（$READ）
  * 参  数：buf —— 帧数据；len —— 帧长度
  * 返回值：无
- * 说  明：先回应答，再发送状态包
+ * 说  明：只回状态包（$STAR），任何情况都不回 $ACK
  ******************************************************************************/
 static void proto_cmd_read_state(const uint8_t *buf, uint16_t len)
 {
     /*==============================
-     *  #1. 回应答
-     *==============================*/
-    proto_send_ack(1U, PROTO_ACK_OK);                       // 控制指令应答
-
-    /*==============================
-     *  #2. 发送状态包
+     *  #1. 组装并回状态包（不回 $ACK，避免占用发送机会）
      *==============================*/
     proto_pack_star();                                      // 组装状态包
     proto_reply((const uint8_t *)&s_star, PROTO_STAR_LEN);  // 从收到请求的那条链路回
@@ -533,18 +483,13 @@ static void proto_cmd_get_rules(const uint8_t *buf, uint16_t len)
  * 功  能：处理重启系统请求（$REST）
  * 参  数：buf —— 帧数据；len —— 帧长度
  * 返回值：无
- * 说  明：先回应答并留出时间把应答发出去，再请求重启；
- *         真正的复位由通信任务在确认应答已发送后执行
+ * 说  明：不回 $ACK（任何情况都不回应答），只置重启请求；
+ *         真正的复位由通信任务执行
  ******************************************************************************/
 static void proto_cmd_restart(const uint8_t *buf, uint16_t len)
 {
     /*==============================
-     *  #1. 回应答
-     *==============================*/
-    proto_send_ack(0U, PROTO_ACK_OK);
-
-    /*==============================
-     *  #2. 置重启请求
+     *  #1. 置重启请求
      *==============================*/
     s_restart_pending = true;                               // 由通信任务执行复位
 
@@ -629,8 +574,7 @@ void protocol_handle_frame(const uint8_t *buf, uint16_t len, proto_channel_t ch)
             {
                 LOG_WARNING("校验失败：收到 0x%04X，计算 0x%04X",
                             (unsigned)rx_crc, (unsigned)calc_crc);
-                proto_send_ack(1U, PROTO_ACK_ERROR);        // 校验失败应答
-                return;
+                return;                                 // 不回 $ACK（任何情况都不回应答）
             }
         }
 

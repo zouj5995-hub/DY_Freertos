@@ -18,7 +18,7 @@ extern "C" {
 /* Exported constants --------------------------------------------------------*/
 
 /* 协议帧长度 */
-#define PROTO_ACK_LEN        14U        // $ACK 应答包长度
+/* 注意：本固件不发送 $ACK 应答包 —— 任何情况都不回应答，以节省北斗上行发送机会 */
 #define PROTO_STAR_LEN       30U        // $STAR 状态上报包长度
 #define PROTO_STR_LEN        222U       // $STR 规则包长度
 #define PROTO_RULE_BYTES     6U         // 协议中每条规则占 6 字节
@@ -28,8 +28,8 @@ extern "C" {
 #define PROTO_BOAT_NUMBER    0x01U      // 船只编号
 
 /* 应答错误码 */
-#define PROTO_ACK_OK         0x00U      // 成功
-#define PROTO_ACK_ERROR      0x01U      // 失败（校验错误或参数非法）
+
+
 
 /* 上报配置（与旧版本一致） */
 #define PROTO_REPORT_MINUTE      53U    // 每小时第 53 分上报
