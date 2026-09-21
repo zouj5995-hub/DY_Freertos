@@ -10,7 +10,10 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.text.InputType
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -253,70 +256,101 @@ class MainActivity : Activity(), UsbSerialManager.Listener {
         if (!::rulesContainer.isInitialized) return
         rulesContainer.removeAllViews()
         rules.forEachIndexed { index, rule ->
+            val start = "%02d:%02d:%02d".format(rule.hour, rule.minute, rule.second)
+            val end = "%02d:%02d:%02d".format(rule.endHour, rule.endMinute, rule.endSecond)
+            val target = ProtocolCodec.targets.firstOrNull { it.first == rule.target }?.second ?: "未知 0x%02X".format(rule.target)
+            val nextDay = timeSeconds(rule.endHour, rule.endMinute, rule.endSecond) < timeSeconds(rule.hour, rule.minute, rule.second)
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(10), dp(9), dp(10), dp(10))
+                setPadding(dp(12), dp(10), dp(12), dp(10))
                 background = rounded(if (index % 2 == 0) R.color.dy_surface_2 else R.color.dy_surface_3, R.color.dy_line, 1, 6)
+                isClickable = true
+                isFocusable = true
+                contentDescription = "编辑规则 ${index + 1}"
+                setOnClickListener { openRuleEditor(index) }
             }
-            var durationText: TextView? = null
-            fun changed(update: (Int) -> Unit) = { value: Int -> update(value); syncRuleDuration(rule); durationText?.text = formatDuration(rule.duration) }
-
             val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-            head.addView(text("规则 %02d".format(index + 1), 13f, R.color.dy_text).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }, LinearLayout.LayoutParams(0, dp(42), 1f))
-            val labels = ProtocolCodec.targets.map { it.second }
-            val spinner = Spinner(this).apply {
-                adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, labels)
-                setSelection(ProtocolCodec.targets.indexOfFirst { it.first == rule.target }.coerceAtLeast(0))
-                setOnItemSelectedListener(object : android.widget.AdapterView.OnItemSelectedListener {
-                    override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
-                    override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) { rule.target = ProtocolCodec.targets[position].first }
-                })
-            }
-            head.addView(spinner, LinearLayout.LayoutParams(0, dp(42), 2f))
+            head.addView(text("%02d".format(index + 1), 12f, R.color.dy_accent).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }, LinearLayout.LayoutParams(dp(36), dp(28)))
+            head.addView(text(target, 12f, if (rule.target == 0xFF) R.color.dy_faint else R.color.dy_text).apply { maxLines = 1 }, LinearLayout.LayoutParams(0, dp(28), 1f))
+            head.addView(text("编辑 ›", 11f, R.color.dy_teal).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL }, LinearLayout.LayoutParams(dp(48), dp(28)))
             card.addView(head)
-
-            card.addView(ruleTimeRow("开始", rule.hour, rule.minute, rule.second, changed { rule.hour = it }, changed { rule.minute = it }, changed { rule.second = it }))
-            card.addView(ruleTimeRow("结束", rule.endHour, rule.endMinute, rule.endSecond, changed { rule.endHour = it }, changed { rule.endMinute = it }, changed { rule.endSecond = it }))
-            durationText = text(formatDuration(rule.duration), 11f, R.color.dy_muted).apply { setPadding(dp(50), dp(5), 0, 0) }
-            card.addView(durationText)
-            rulesContainer.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, dp(8)) })
-            animateIn(card, min(index * 14L, 420L))
+            card.addView(text("$start  →  $end${if (nextDay) "  次日" else ""}", 14f, R.color.dy_text).apply { setTypeface(typeface, android.graphics.Typeface.BOLD); setPadding(dp(36), dp(3), 0, 0) })
+            card.addView(text("协议持续时间  ${formatDuration(rule.duration)}", 10f, R.color.dy_muted).apply { setPadding(dp(36), dp(3), 0, 0) })
+            rulesContainer.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, dp(7)) })
         }
-    }
-
-    private fun ruleTimeRow(label: String, hour: Int, minute: Int, second: Int, onHour: (Int) -> Unit, onMinute: (Int) -> Unit, onSecond: (Int) -> Unit): View {
-        val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(6), 0, 0) }
-        row.addView(text(label, 11f, R.color.dy_muted).apply { gravity = Gravity.CENTER_VERTICAL }, LinearLayout.LayoutParams(dp(42), dp(40)))
-        fun field(value: Int, max: Int, onChange: (Int) -> Unit) {
-            val holder = LinearLayout(this).apply { gravity = Gravity.CENTER }
-            addRuleInput(holder, value, 0, max, onChange)
-            row.addView(holder, LinearLayout.LayoutParams(0, dp(40), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
-        }
-        field(hour, 23, onHour)
-        row.addView(text(":", 14f, R.color.dy_faint).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(10), dp(40)))
-        field(minute, 59, onMinute)
-        row.addView(text(":", 14f, R.color.dy_faint).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(10), dp(40)))
-        field(second, 59, onSecond)
-        return row
     }
 
     private fun syncRuleDuration(rule: StrategyRule): Int {
-        val start = rule.hour.coerceIn(0, 23) * 3600 + rule.minute.coerceIn(0, 59) * 60 + rule.second.coerceIn(0, 59)
-        val end = rule.endHour.coerceIn(0, 23) * 3600 + rule.endMinute.coerceIn(0, 59) * 60 + rule.endSecond.coerceIn(0, 59)
+        val start = timeSeconds(rule.hour, rule.minute, rule.second)
+        val end = timeSeconds(rule.endHour, rule.endMinute, rule.endSecond)
         var duration = end - start
         if (duration < 0) duration += 86400
         rule.duration = duration.coerceAtMost(65535)
         return rule.duration
     }
 
+    private fun timeSeconds(hour: Int, minute: Int, second: Int) = hour.coerceIn(0, 23) * 3600 + minute.coerceIn(0, 59) * 60 + second.coerceIn(0, 59)
+
     private fun formatDuration(seconds: Int): String = "%d:%02d:%02d · %d 秒".format(seconds / 3600, (seconds / 60) % 60, seconds % 60, seconds)
 
-    private fun addRuleInput(row: LinearLayout, value: Int, minValue: Int, maxValue: Int, onChange: (Int) -> Unit) {
-        val input = EditText(this).apply {
-            setText(value.toString()); setTextColor(color(R.color.dy_text)); textSize = 12f; gravity = Gravity.CENTER; inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine(); background = rounded(R.color.dy_surface_2, R.color.dy_line, 1, 5); setPadding(dp(3), 0, dp(3), 0)
-            setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) { val parsed = text.toString().toIntOrNull()?.coerceIn(minValue, maxValue) ?: minValue; setText(parsed.toString()); onChange(parsed) } }
+    private fun openRuleEditor(index: Int) {
+        val rule = rules[index]
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(4), dp(20), 0) }
+        fun number(value: Int): EditText = EditText(this).apply {
+            setText(value.toString()); setTextColor(color(R.color.dy_text)); textSize = 14f; gravity = Gravity.CENTER
+            inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine(); background = rounded(R.color.dy_surface_2, R.color.dy_line, 1, 5)
         }
-        row.addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)))
+        fun timeRow(label: String, values: List<Int>): Pair<View, List<EditText>> {
+            val inputs = values.map(::number)
+            val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, 0) }
+            row.addView(text(label, 12f, R.color.dy_muted), LinearLayout.LayoutParams(dp(44), dp(44)))
+            inputs.forEachIndexed { inputIndex, input ->
+                row.addView(input, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
+                if (inputIndex < 2) row.addView(text(":", 14f, R.color.dy_faint).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(8), dp(44)))
+            }
+            return row to inputs
+        }
+        val (startRow, startInputs) = timeRow("开始", listOf(rule.hour, rule.minute, rule.second))
+        val (endRow, endInputs) = timeRow("结束", listOf(rule.endHour, rule.endMinute, rule.endSecond))
+        content.addView(startRow); content.addView(endRow)
+        val durationPreview = text("", 11f, R.color.dy_accent).apply { setPadding(dp(44), dp(8), 0, dp(8)) }
+        content.addView(durationPreview)
+        val targetSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, ProtocolCodec.targets.map { it.second })
+            setSelection(ProtocolCodec.targets.indexOfFirst { it.first == rule.target }.coerceAtLeast(0))
+        }
+        content.addView(targetSpinner, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)))
+
+        fun read(input: EditText, max: Int) = input.text.toString().toIntOrNull()?.coerceIn(0, max) ?: 0
+        fun durationInfo(): Pair<Int, Boolean> {
+            val start = timeSeconds(read(startInputs[0], 23), read(startInputs[1], 59), read(startInputs[2], 59))
+            val end = timeSeconds(read(endInputs[0], 23), read(endInputs[1], 59), read(endInputs[2], 59))
+            var duration = end - start
+            val nextDay = duration < 0
+            if (nextDay) duration += 86400
+            return duration to nextDay
+        }
+        fun updatePreview() { val (duration, nextDay) = durationInfo(); durationPreview.text = if (duration <= 65535) "协议持续时间  ${formatDuration(duration)}${if (nextDay) " · 次日结束" else ""}" else "持续时间超过协议上限 65535 秒" }
+        val watcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = updatePreview()
+            override fun afterTextChanged(s: Editable?) = Unit
+        }
+        (startInputs + endInputs).forEach { it.addTextChangedListener(watcher) }
+        updatePreview()
+
+        val dialog = AlertDialog.Builder(this).setTitle("编辑规则 %02d".format(index + 1)).setView(content).setNegativeButton("取消", null).setPositiveButton("保存", null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val (duration, _) = durationInfo()
+                val target = ProtocolCodec.targets[targetSpinner.selectedItemPosition].first
+                if (duration > 65535 && target != 0xFF) { toast("持续时间不能超过 65535 秒"); return@setOnClickListener }
+                rule.hour = read(startInputs[0], 23); rule.minute = read(startInputs[1], 59); rule.second = read(startInputs[2], 59)
+                rule.endHour = read(endInputs[0], 23); rule.endMinute = read(endInputs[1], 59); rule.endSecond = read(endInputs[2], 59)
+                rule.target = target; syncRuleDuration(rule); renderRules(); dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     private fun renderDevices(sensor: Int) {
@@ -460,25 +494,25 @@ class MainActivity : Activity(), UsbSerialManager.Listener {
 
     private class LinkPulseView(context: android.content.Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        private var running = false
+        private var connected = false
         private var phase = 0f
         private var pulseUntil = 0L
         init { setBackgroundColor(Color.TRANSPARENT) }
-        fun start() { running = true; invalidate() }
-        fun stop() { running = false; invalidate() }
-        fun pulse() { pulseUntil = System.currentTimeMillis() + 500; running = true; invalidate() }
+        fun start() { connected = true; invalidate() }
+        fun stop() { connected = false; pulseUntil = 0L; invalidate() }
+        fun pulse() { pulseUntil = SystemClock.uptimeMillis() + 420; invalidate() }
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val cx = width * .12f; val cy = height / 2f; val base = min(width, height) * .14f
-            paint.style = Paint.Style.FILL; paint.color = Color.rgb(99, 214, 195); canvas.drawCircle(cx, cy, base, paint)
+            paint.style = Paint.Style.FILL; paint.color = if (connected) Color.rgb(99, 214, 195) else Color.rgb(93, 107, 117); canvas.drawCircle(cx, cy, base, paint)
             paint.style = Paint.Style.STROKE; paint.strokeWidth = dp(1.5f); paint.color = Color.rgb(99, 214, 195)
-            val active = running || System.currentTimeMillis() < pulseUntil
+            val active = SystemClock.uptimeMillis() < pulseUntil
             if (active) {
-                phase = (phase + .035f) % 1f
+                phase = (phase + .075f) % 1f
                 for (index in 0..2) { val p = (phase + index / 3f) % 1f; paint.alpha = ((1f - p) * 150).toInt(); canvas.drawCircle(cx, cy, base + p * base * 6f, paint) }
-                postInvalidateDelayed(16)
+                postInvalidateOnAnimation()
             }
-            paint.alpha = 255; paint.style = Paint.Style.FILL; paint.color = Color.rgb(141, 155, 165); paint.textSize = dp(12f); canvas.drawText(if (running) "USB 链路在线 · 数据会以协议帧流入" else "等待 OTG / CH340 串口授权", dp(30f), cy + dp(4f), paint)
+            paint.alpha = 255; paint.style = Paint.Style.FILL; paint.color = Color.rgb(141, 155, 165); paint.textSize = dp(12f); canvas.drawText(if (connected) "USB 链路在线 · 收发时显示脉冲" else "等待 OTG / CH340 串口授权", dp(30f), cy + dp(4f), paint)
         }
         private fun dp(value: Float) = value * resources.displayMetrics.density
     }

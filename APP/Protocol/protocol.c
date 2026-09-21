@@ -533,7 +533,7 @@ void protocol_handle_frame(const uint8_t *buf, uint16_t len, proto_channel_t ch)
 
     s_reply_channel = ch;
 
-    LOG_DEBUG("收到帧：%u 字节，头部=%.8s", (unsigned)len, (const char *)buf);  // 改 DEBUG：避免上位机轮询时刷屏
+    LOG_INFO("收到帧：%u 字节，头部=%.8s", (unsigned)len, (const char *)buf);   // 【临时诊断】定位北斗分包问题，确认后可降回 DEBUG
 
     /*==============================
      *  #2. 遍历协议表匹配协议头
