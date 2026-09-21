@@ -154,6 +154,20 @@ standard names. */
 #define configUSE_EVENT_GROUPS 1
 #define configUSE_STREAM_BUFFERS 1
 
+/* ===== 低功耗：空闲进入休眠（tickless idle）=====
+ * 置 1 后，空闲任务发现"预计空闲时间"足够长时，会停掉 SysTick 并执行 __WFI()
+ * 让 CPU 进入 SLEEP 模式，由下一个唤醒中断恢复；内核按睡眠时长补偿 tick，
+ * 因此任务延时与超时逻辑不受影响。
+ *
+ * ⚠ 这里是"深度 SLEEP"而非 STOP：SLEEP 只停内核时钟，USART/EXTI/ADC/IWDG
+ *   等外设照常工作，唤醒时间 <1µs，不会丢 485 与 LoRa 数据。
+ *   （STOP 会停外设时钟，485 直接收不到数据，本项目不可用，详见 docs/低功耗说明.md）
+ */
+#define configUSE_TICKLESS_IDLE                  1
+/* 至少连续空闲这么多个 tick（本工程 tick=1ms）才值得睡眠；
+ * 设 2 可避免"刚睡就被唤醒"造成的频繁进出开销。 */
+#define configEXPECTED_IDLE_TIME_BEFORE_SLEEP    2
+
 /* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
 /* USER CODE END Defines */
 
