@@ -430,9 +430,19 @@ static void proto_cmd_set_rules(const uint8_t *buf, uint16_t len)
      *==============================*/
     ok = rule_store_save(rules, PROTO_RULE_COUNT);          // 持久化
 
+    if (ok == false)
+    {
+        LOG_ERROR("策略写入 EEPROM 失败（检查 EEPROM 芯片接线与 I2C 上拉：SCL=PG3 SDA=PG2）");
+    }
+
     if (ok)
     {
         ok = power_reload_rules();                          // 让新策略立即生效
+
+        if (ok == false)
+        {
+            LOG_ERROR("策略已存入 EEPROM，但重新载入决策层失败（读取异常）");
+        }
     }
 
     /*==============================

@@ -25,7 +25,7 @@ extern "C" {
 #define PROTO_RULE_COUNT     35U        // 规则条数
 
 /* 协议固定字段 */
-#define PROTO_BOAT_NUMBER    0x01U      // 船只编号
+#define PROTO_BOAT_NUMBER    0x02U      // 船只编号
 
 /* 应答错误码 */
 
