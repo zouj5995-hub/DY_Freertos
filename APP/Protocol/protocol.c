@@ -12,6 +12,7 @@
 #include "board.h"
 #include "rule_store.h"
 #include "time_service.h"
+#include "bd_time.h"
 #include "monitor_service.h"
 #include "power.h"
 #include "log.h"
@@ -421,7 +422,9 @@ static void proto_cmd_bd_time(const uint8_t *buf, uint16_t len)
         t.second = (uint8_t)ss;                             // 秒
 
         time_service_set(&t);                               // 校时成功后会标记时间可信
-     }
+    }
+
+    bd_time_on_synced();                                    // 通知北斗校时模块：本轮查询已完成，当天不再重复查询
 
     LOG_INFO("北斗校时完成：20%02d-%02d-%02d %02d:%02d:%02d", yy, mo, dd, hh, mi, ss);
 }

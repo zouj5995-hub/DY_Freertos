@@ -11,6 +11,7 @@
 #include "log.h"
 #include "wdg_service.h"
 #include "monitor_service.h"
+#include "bd_time.h"
 
 #define MONITOR_PERIOD_MS 1000  //采集周期（毫秒）
 #define MONITOR_SIMULATE_ENABLE   0     // 0=真实采集，1=模拟数据（测完必须改回 0）
@@ -31,6 +32,8 @@ void TaskMonitor(void *argument)
     uint8_t            log_count  = 0;
 
     last_wake_tick = xTaskGetTickCount();                       // 记录本周期起点
+
+    bd_time_init();                                             // 启动北斗主动校时状态机
 
     /*==============================
      *  #1. 任务主循环（永不退出）
@@ -89,7 +92,12 @@ void TaskMonitor(void *argument)
         }
 
         /*==============================
-         *  #5. 等到下一个固定采集周期
+         *  #5. 北斗校时查询（开机 60 秒后一次 + 每天 11:50 后一次）
+         *==============================*/
+        bd_time_poll();                                     // 驱动北斗校时状态机
+
+        /*==============================
+         *  #6. 等到下一个固定采集周期
          *==============================*/
         wdg_kick(WDG_BIT_MONITOR);                          // 上报心跳（监控任务）
         vTaskDelayUntil(&last_wake_tick, pdMS_TO_TICKS(MONITOR_PERIOD_MS));

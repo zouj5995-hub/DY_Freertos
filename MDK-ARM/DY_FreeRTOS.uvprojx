@@ -1258,6 +1258,11 @@
               <FileType>1</FileType>
               <FilePath>..\APP\Services\time_service.c</FilePath>
             </File>
+            <File>
+              <FileName>bd_time.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\APP\Services\bd_time.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

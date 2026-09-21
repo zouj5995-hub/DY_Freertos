@@ -110,6 +110,8 @@
     .index-cell { width: 54px; color: var(--faint); font: 12px var(--mono); }
     .rule-input { width: 74px; min-height: 32px; padding: 0 7px; }
     .rule-duration { color: var(--muted); font: 11px var(--mono); white-space: nowrap; }
+    .rule-duration[data-invalid="true"] { color: var(--danger); }
+    .rule-day { display: block; margin-top: 2px; color: var(--accent); font: 10px var(--sans); }
     .rule-select { min-height: 32px; min-width: 190px; }
     .table-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .table-actions p { margin: 0; color: var(--muted); font-size: 12px; }
@@ -229,8 +231,8 @@
           <section class="panel" aria-labelledby="rulesTitle">
             <div class="panel-head"><div><p class="panel-kicker">strategy / $STR</p><h2 class="panel-title" id="rulesTitle">控制策略 · 35 条</h2><p class="panel-subtitle">未使用条目标记为“无效”，发送时仍会完整凑满 222 字节。</p></div><span class="hint" id="rulesState">本地草稿</span></div>
             <div class="panel-body">
-              <div class="table-actions"><p>每条规则为 <strong>起始时间 + 工作时长 + 目标设备</strong>。</p><button class="btn btn-quiet" id="resetRulesBtn" type="button"><span aria-hidden="true">↺</span>恢复空表</button></div>
-              <div class="table-wrap"><table><thead><tr><th>序号</th><th>起时</th><th>起分</th><th>起秒</th><th>工作时长（秒）</th><th>换算</th><th>目标设备</th></tr></thead><tbody id="rulesBody"></tbody></table></div>
+              <div class="table-actions"><p>配置时填写 <strong>开始时间 + 结束时间</strong>；发送时自动换算为协议要求的持续秒数。</p><button class="btn btn-quiet" id="resetRulesBtn" type="button"><span aria-hidden="true">↺</span>恢复空表</button></div>
+              <div class="table-wrap"><table><thead><tr><th>序号</th><th>开始时</th><th>开始分</th><th>开始秒</th><th>结束时</th><th>结束分</th><th>结束秒</th><th>协议持续时间</th><th>目标设备</th></tr></thead><tbody id="rulesBody"></tbody></table></div>
             </div>
           </section>
         </div>
@@ -307,13 +309,15 @@
         port: null,
         reader: null,
         readLoopRunning: false,
+        readLoopPromise: null,
+        disconnecting: false,
         rxBuffer: new Uint8Array(0),
         rxTimer: null,
         logs: [],
         statusHistory: [],
         pollTimer: null,
         confirmHandler: null,
-        rules: Array.from({ length: 35 }, () => ({ hour: 0, minute: 0, second: 0, duration: 0, target: 0xFF })),
+        rules: Array.from({ length: 35 }, () => ({ hour: 0, minute: 0, second: 0, endHour: 0, endMinute: 0, endSecond: 0, duration: 0, target: 0xFF })),
         latestStatus: null,
         demo: new URLSearchParams(location.search).has('demo')
       };
@@ -335,6 +339,10 @@
       function isTail(bytes) { return bytes.length >= 5 && TAIL.every((value, index) => bytes[bytes.length - 5 + index] === value); }
       function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
       function formatDuration(seconds) { const total = clamp(seconds, 0, 65535); return `${Math.floor(total / 3600)}:${pad2(Math.floor(total / 60) % 60)}:${pad2(total % 60)}`; }
+      function timeToSeconds(hour, minute, second) { return clamp(hour, 0, 23) * 3600 + clamp(minute, 0, 59) * 60 + clamp(second, 0, 59); }
+      function ruleEndFromDuration(rule) { const total = timeToSeconds(rule.hour, rule.minute, rule.second) + clamp(rule.duration, 0, 65535); const end = total % 86400; return { endHour: Math.floor(end / 3600), endMinute: Math.floor(end / 60) % 60, endSecond: end % 60, nextDay: total >= 86400 }; }
+      function ruleDurationInfo(rule) { const start = timeToSeconds(rule.hour, rule.minute, rule.second); const end = timeToSeconds(rule.endHour, rule.endMinute, rule.endSecond); let raw = end - start; if (raw < 0) raw += 86400; return { raw, duration: Math.min(raw, 65535), valid: raw <= 65535, nextDay: end < start }; }
+      function syncRuleDuration(rule) { const info = ruleDurationInfo(rule); rule.duration = info.duration; rule.nextDay = info.nextDay; return info; }
       function formatLocalDate(date) { return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`; }
       function formatDeviceDate(star) { return `${star.year}-${pad2(star.month)}-${pad2(star.day)} ${pad2(star.hour)}:${pad2(star.minute)}:${pad2(star.second)}`; }
       function currentTimeInputValue() { const now = new Date(); return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}T${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`; }
@@ -387,7 +395,13 @@
       }
 
       function renderRules() {
-        $('#rulesBody').innerHTML = state.rules.map((rule, index) => `<tr data-index="${index}"><td class="index-cell">${pad2(index + 1)}</td><td><input class="rule-input" data-field="hour" type="number" min="0" max="23" value="${rule.hour}" aria-label="第 ${index + 1} 条起始时"></td><td><input class="rule-input" data-field="minute" type="number" min="0" max="59" value="${rule.minute}" aria-label="第 ${index + 1} 条起始分"></td><td><input class="rule-input" data-field="second" type="number" min="0" max="59" value="${rule.second}" aria-label="第 ${index + 1} 条起始秒"></td><td><input class="rule-input" data-field="duration" type="number" min="0" max="65535" value="${rule.duration}" aria-label="第 ${index + 1} 条工作时长秒数"></td><td class="rule-duration">${formatDuration(rule.duration)}</td><td><select class="rule-select" data-field="target" aria-label="第 ${index + 1} 条目标设备">${TARGETS.map(([value, label]) => `<option value="${value}" ${value === rule.target ? 'selected' : ''}>${label}</option>`).join('')}</select></td></tr>`).join('');
+        state.rules.forEach(rule => { if (!Number.isFinite(rule.endHour)) Object.assign(rule, ruleEndFromDuration(rule)); syncRuleDuration(rule); });
+        $('#rulesBody').innerHTML = state.rules.map((rule, index) => {
+          const info = ruleDurationInfo(rule);
+          const timeInput = (field, value, max, label) => `<input class="rule-input" data-field="${field}" type="number" min="0" max="${max}" value="${value}" aria-label="第 ${index + 1} 条${label}">`;
+          const durationText = info.valid ? `${formatDuration(info.duration)} · ${info.duration} 秒` : `超出上限 · ${info.raw} 秒`;
+          return `<tr data-index="${index}"><td class="index-cell">${pad2(index + 1)}</td><td>${timeInput('hour', rule.hour, 23, '开始时')}</td><td>${timeInput('minute', rule.minute, 59, '开始分')}</td><td>${timeInput('second', rule.second, 59, '开始秒')}</td><td>${timeInput('endHour', rule.endHour, 23, '结束时')}</td><td>${timeInput('endMinute', rule.endMinute, 59, '结束分')}</td><td>${timeInput('endSecond', rule.endSecond, 59, '结束秒')}</td><td class="rule-duration" data-role="duration" data-invalid="${!info.valid}" title="${info.nextDay ? '跨午夜计算' : '同日计算'}">${durationText}${info.nextDay ? '<span class="rule-day">次日结束</span>' : ''}</td><td><select class="rule-select" data-field="target" aria-label="第 ${index + 1} 条目标设备">${TARGETS.map(([value, label]) => `<option value="${value}" ${value === rule.target ? 'selected' : ''}>${label}</option>`).join('')}</select></td></tr>`;
+        }).join('');
       }
 
       function updateRuleFromInput(event) {
@@ -396,17 +410,18 @@
         const row = input.closest('tr');
         const index = Number(row.dataset.index);
         const field = input.dataset.field;
-        const limits = { hour: [0, 23], minute: [0, 59], second: [0, 59], duration: [0, 65535] };
+        const limits = { hour: [0, 23], minute: [0, 59], second: [0, 59], endHour: [0, 23], endMinute: [0, 59], endSecond: [0, 59] };
         state.rules[index][field] = field === 'target' ? Number(input.value) : clamp(input.value, ...(limits[field] || [0, 65535]));
         if (field !== 'target') input.value = state.rules[index][field];
-        const durationCell = $('.rule-duration', row);
-        if (durationCell) durationCell.textContent = formatDuration(state.rules[index].duration);
+        const info = syncRuleDuration(state.rules[index]);
+        const durationCell = $('[data-role="duration"]', row);
+        if (durationCell) { durationCell.dataset.invalid = String(!info.valid); durationCell.title = info.nextDay ? '跨午夜计算' : '同日计算'; durationCell.innerHTML = `${info.valid ? `${formatDuration(info.duration)} · ${info.duration} 秒` : `超出上限 · ${info.raw} 秒`}${info.nextDay ? '<span class="rule-day">次日结束</span>' : ''}`; }
         $('#rulesState').textContent = '有未发送修改';
       }
 
       function parseStar(bytes) { return { boat: bytes[5], year: bytes[6] | (bytes[7] << 8), month: bytes[8], day: bytes[9], hour: bytes[10], minute: bytes[11], second: bytes[12], voltage: (bytes[13] | (bytes[14] << 8)) / 10, ntc1: int16(bytes[15], bytes[16]) / 10, ntc2: int16(bytes[17], bytes[18]) / 10, pcb: int16(bytes[19], bytes[20]) / 10, sensor: bytes[21], errcode: bytes[22], crc: (bytes[23] << 8) | bytes[24] }; }
       function parseAck(bytes) { return { type: bytes[4], boat: bytes[5], error: bytes[6], crc: (bytes[7] << 8) | bytes[8] }; }
-      function parseStrategy(bytes) { const rules = []; for (let index = 0; index < 35; index++) { const offset = 5 + index * 6; rules.push({ hour: bytes[offset], minute: bytes[offset + 1], second: bytes[offset + 2], duration: bytes[offset + 3] | (bytes[offset + 4] << 8), target: bytes[offset + 5] }); } return rules; }
+      function parseStrategy(bytes) { const rules = []; for (let index = 0; index < 35; index++) { const offset = 5 + index * 6; const rule = { hour: bytes[offset], minute: bytes[offset + 1], second: bytes[offset + 2], duration: bytes[offset + 3] | (bytes[offset + 4] << 8), target: bytes[offset + 5] }; Object.assign(rule, ruleEndFromDuration(rule)); rules.push(rule); } return rules; }
 
       function validateFrame(bytes) {
         if (!isTail(bytes)) return { ok: false, reason: '帧尾不是 $OVER' };
@@ -455,33 +470,37 @@
       function appendRx(value) { state.rxBuffer = concatBytes(state.rxBuffer, value); clearTimeout(state.rxTimer); state.rxTimer = setTimeout(() => { if (state.rxBuffer.length) { addLog('rx', state.rxBuffer, '接收超时，清理半帧缓冲', 'error'); state.rxBuffer = new Uint8Array(0); } }, 300); consumeRxBuffer(); }
 
       async function readLoop() {
-        if (!state.port || !state.port.readable || state.readLoopRunning) return;
+        const port = state.port;
+        if (!port || !port.readable || state.readLoopRunning) return;
         state.readLoopRunning = true;
+        const reader = port.readable.getReader();
+        state.reader = reader;
         try {
-          while (state.port && state.port.readable) {
-            state.reader = state.port.readable.getReader();
-            try { while (true) { const { value, done } = await state.reader.read(); if (done) break; if (value) appendRx(value); } }
-            catch (error) { if (state.port) addLog('rx', [], `串口读取异常：${error.message}`, 'error'); }
-            finally { state.reader.releaseLock(); state.reader = null; }
-          }
-        } finally { state.readLoopRunning = false; }
+          while (true) { const { value, done } = await reader.read(); if (done) break; if (value) appendRx(value); }
+        } catch (error) {
+          if (state.port === port && !state.disconnecting) addLog('rx', [], `串口读取异常：${error.message}`, 'error');
+        } finally {
+          if (state.reader === reader) { reader.releaseLock(); state.reader = null; }
+          state.readLoopRunning = false;
+        }
       }
 
       function setConnected(connected, label = '') { connectionState.dataset.connected = String(connected); $('#connectionLabel').textContent = connected ? '已连接' : '未连接'; $('#portName').textContent = connected ? (label || 'USB 串口') : '选择串口开始'; connectBtn.disabled = connected; appActionButtons.forEach(button => button.disabled = !connected); disconnectBtn.disabled = !connected; }
 
       async function connectSerial() {
+        if (state.disconnecting) return;
         if (!('serial' in navigator)) { showToast('当前浏览器不支持 Web Serial', 'error', '请使用 Chrome 或 Edge 89+'); return; }
-        try { state.port = await navigator.serial.requestPort(); await state.port.open({ baudRate: 9600, dataBits: 8, parity: 'none', stopBits: 1, flowControl: 'none' }); const info = state.port.getInfo ? state.port.getInfo() : {}; const label = info.usbVendorId ? `USB ${info.usbVendorId.toString(16).toUpperCase()}` : 'USB 串口'; setConnected(true, label); addLog('tx', [], '串口已打开 · 9600/8N1'); showToast('串口已连接', 'success', '固定参数 9600 / 8N1'); readLoop(); configurePolling(); }
+        try { state.port = await navigator.serial.requestPort(); await state.port.open({ baudRate: 9600, dataBits: 8, parity: 'none', stopBits: 1, flowControl: 'none' }); const info = state.port.getInfo ? state.port.getInfo() : {}; const label = info.usbVendorId ? `USB ${info.usbVendorId.toString(16).toUpperCase()}` : 'USB 串口'; setConnected(true, label); addLog('tx', [], '串口已打开 · 9600/8N1'); showToast('串口已连接', 'success', '固定参数 9600 / 8N1'); state.readLoopPromise = readLoop(); configurePolling(); }
         catch (error) { state.port = null; setConnected(false); if (error.name !== 'AbortError') showToast('连接失败', 'error', error.message || '无法打开串口'); }
       }
 
-      async function disconnectSerial() { clearInterval(state.pollTimer); state.pollTimer = null; try { if (state.reader) await state.reader.cancel(); if (state.port) await state.port.close(); } catch (error) { addLog('rx', [], `断开时出现提示：${error.message}`, 'error'); } finally { state.reader = null; state.port = null; state.rxBuffer = new Uint8Array(0); setConnected(false); $('#pollState').textContent = '轮询已关闭'; showToast('串口已断开'); } }
+      async function disconnectSerial() { if (state.disconnecting) return; state.disconnecting = true; clearInterval(state.pollTimer); state.pollTimer = null; const port = state.port; const reader = state.reader; const readLoopPromise = state.readLoopPromise; state.port = null; setConnected(false); $('#pollState').textContent = '轮询已关闭'; try { if (reader) await reader.cancel(); if (readLoopPromise) await readLoopPromise; if (port) await port.close(); showToast('串口已断开'); } catch (error) { addLog('rx', [], `断开时出现提示：${error.message}`, 'error'); } finally { state.reader = null; state.readLoopPromise = null; state.rxBuffer = new Uint8Array(0); state.disconnecting = false; } }
 
       async function sendBytes(bytes, summary) { if (!state.port || !state.port.writable) { showToast('请先连接串口', 'error'); return false; } const writer = state.port.writable.getWriter(); try { await writer.write(bytes); addLog('tx', bytes, summary); return true; } catch (error) { addLog('tx', bytes, `发送失败：${error.message}`, 'error'); showToast('发送失败', 'error', error.message); return false; } finally { writer.releaseLock(); } }
       async function sendRead() { await sendBytes(buildFrame('$READ', getBoat()), '$READ · 读取设备状态'); }
       async function sendGetStrategy() { await sendBytes(buildFrame('$GETSTR', getBoat()), '$GETSTR · 读取控制策略'); }
-      function strategyBytes() { const bytes = new Uint8Array(210); state.rules.forEach((rule, index) => { const offset = index * 6; bytes[offset] = clamp(rule.hour, 0, 23); bytes[offset + 1] = clamp(rule.minute, 0, 59); bytes[offset + 2] = clamp(rule.second, 0, 59); bytes[offset + 3] = clamp(rule.duration, 0, 65535) & 0xFF; bytes[offset + 4] = (clamp(rule.duration, 0, 65535) >> 8) & 0xFF; bytes[offset + 5] = rule.target; }); return bytes; }
-      async function sendStrategy() { const frame = buildFrame('$STR', getBoat(), strategyBytes()); if (await sendBytes(frame, '$STR · 下发 35 条控制策略')) $('#rulesState').textContent = '已发送，等待 ACK'; }
+      function strategyBytes() { const bytes = new Uint8Array(210); state.rules.forEach((rule, index) => { const info = syncRuleDuration(rule); const duration = info.valid ? info.duration : 65535; const offset = index * 6; bytes[offset] = clamp(rule.hour, 0, 23); bytes[offset + 1] = clamp(rule.minute, 0, 59); bytes[offset + 2] = clamp(rule.second, 0, 59); bytes[offset + 3] = duration & 0xFF; bytes[offset + 4] = (duration >> 8) & 0xFF; bytes[offset + 5] = clamp(rule.target, 0, 255); }); return bytes; }
+      async function sendStrategy() { const invalid = state.rules.findIndex(rule => { const info = ruleDurationInfo(rule); return rule.target !== 0xFF && !info.valid; }); if (invalid >= 0) { showToast('策略时间超出协议上限', 'error', `第 ${invalid + 1} 条持续时间超过 65535 秒，请缩短结束时间`); return; } const frame = buildFrame('$STR', getBoat(), strategyBytes()); if (await sendBytes(frame, '$STR · 下发 35 条控制策略')) $('#rulesState').textContent = '已发送，等待 ACK'; }
       async function sendRestart() { await sendBytes(buildFrame('$REST', getBoat()), '$REST · 请求重启板子'); }
       async function sendTime() { const value = $('#timeInput').value; if (!value) { showToast('请选择目标时间', 'error'); return; } const localDate = new Date(value); if (Number.isNaN(localDate.getTime())) { showToast('时间格式无效', 'error'); return; } const utc = `$BDRMC,${String(localDate.getUTCFullYear()).slice(-2)}-${pad2(localDate.getUTCMonth() + 1)}-${pad2(localDate.getUTCDate())},${pad2(localDate.getUTCHours())}:${pad2(localDate.getUTCMinutes())}:${pad2(localDate.getUTCSeconds())}`; if (await sendBytes(textEncoder.encode(utc), `${utc} · UTC 校时（无应答）`)) showToast('校时指令已发送', 'success', '无应答属正常，请读取设备状态确认'); }
 
@@ -490,10 +509,10 @@
 
       function onCommand(command) { if (command === 'read') sendRead(); else if (command === 'getstr') sendGetStrategy(); else if (command === 'time') sendTime(); else if (command === 'str') openConfirm('确认下发控制策略？', '这会整表覆盖设备内现有的 35 条规则。请确认表格内容无误。', sendStrategy); else if (command === 'rest') openConfirm('确认重启板子？', '重启不可逆，设备将在约 300 ms 后复位，当前通信会短暂中断。', sendRestart); }
 
-      function resetRules() { state.rules = Array.from({ length: 35 }, () => ({ hour: 0, minute: 0, second: 0, duration: 0, target: 0xFF })); renderRules(); $('#rulesState').textContent = '本地草稿已清空'; }
+      function resetRules() { state.rules = Array.from({ length: 35 }, () => ({ hour: 0, minute: 0, second: 0, endHour: 0, endMinute: 0, endSecond: 0, duration: 0, target: 0xFF })); renderRules(); $('#rulesState').textContent = '本地草稿已清空'; }
       function exportLog() { if (!state.logs.length) { showToast('没有可导出的日志', 'error'); return; } const content = state.logs.slice().reverse().map(item => `[${formatLocalDate(item.time)}] ${item.direction === 'tx' ? 'TX' : 'RX'} ${item.summary}\n${bytesToHex(item.bytes)}`).join('\n\n'); const blob = new Blob([content], { type: 'text/plain;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `dy-lora-log-${new Date().toISOString().slice(0, 10)}.txt`; link.click(); URL.revokeObjectURL(url); }
 
-      function seedDemo() { document.body.classList.add('demo'); const demoStar = Uint8Array.from([0x24,0x53,0x54,0x41,0x52,0x01,0xEA,0x07,0x09,0x15,0x05,0x02,0x2B,0xEE,0x00,0x03,0x01,0x04,0x01,0x25,0x01,0x04,0x00,0x00,0x00,0x24,0x4F,0x56,0x45,0x52]); const body = demoStar.slice(0, 23); const crc = crc16Modbus(body); demoStar[23] = crc >> 8; demoStar[24] = crc & 0xFF; updateStatus(parseStar(demoStar), demoStar); addLog('rx', demoStar, '$STAR · 演示数据 · 23.8 V'); addLog('tx', buildFrame('$READ', 1), '$READ · 演示发送帧'); state.rules[0] = { hour: 6, minute: 30, second: 0, duration: 3600, target: 0x0A }; state.rules[1] = { hour: 18, minute: 0, second: 0, duration: 1800, target: 0x0B }; renderRules(); }
+      function seedDemo() { document.body.classList.add('demo'); const demoStar = Uint8Array.from([0x24,0x53,0x54,0x41,0x52,0x01,0xEA,0x07,0x09,0x15,0x05,0x02,0x2B,0xEE,0x00,0x03,0x01,0x04,0x01,0x25,0x01,0x04,0x00,0x00,0x00,0x24,0x4F,0x56,0x45,0x52]); const body = demoStar.slice(0, 23); const crc = crc16Modbus(body); demoStar[23] = crc >> 8; demoStar[24] = crc & 0xFF; updateStatus(parseStar(demoStar), demoStar); addLog('rx', demoStar, '$STAR · 演示数据 · 23.8 V'); addLog('tx', buildFrame('$READ', 1), '$READ · 演示发送帧'); state.rules[0] = { hour: 6, minute: 30, second: 0, endHour: 7, endMinute: 30, endSecond: 0, duration: 3600, target: 0x0A }; state.rules[1] = { hour: 18, minute: 0, second: 0, endHour: 18, endMinute: 30, endSecond: 0, duration: 1800, target: 0x0B }; renderRules(); }
 
       $('#boatNumber').addEventListener('input', () => { const boat = getBoat(); $('#commandBoat').textContent = pad2(boat); });
       connectBtn.addEventListener('click', connectSerial);
