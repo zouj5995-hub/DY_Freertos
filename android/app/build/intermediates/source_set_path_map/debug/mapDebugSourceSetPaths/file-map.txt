@@ -1,0 +1,7 @@
+com.dy.lora.app-pngs-0 E:\项目\嵌入式软件\STM32H757XIHxL_Prj\DY_FreeRTOS\android\app\build\generated\res\pngs\debug
+com.dy.lora.app-resValues-1 E:\项目\嵌入式软件\STM32H757XIHxL_Prj\DY_FreeRTOS\android\app\build\generated\res\resValues\debug
+com.dy.lora.app-packageDebugResources-2 E:\项目\嵌入式软件\STM32H757XIHxL_Prj\DY_FreeRTOS\android\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.dy.lora.app-packageDebugResources-3 E:\项目\嵌入式软件\STM32H757XIHxL_Prj\DY_FreeRTOS\android\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.dy.lora.app-debug-4 E:\项目\嵌入式软件\STM32H757XIHxL_Prj\DY_FreeRTOS\android\app\build\intermediates\merged_res\debug\mergeDebugResources
+com.dy.lora.app-debug-5 E:\项目\嵌入式软件\STM32H757XIHxL_Prj\DY_FreeRTOS\android\app\src\debug\res
+com.dy.lora.app-main-6 E:\项目\嵌入式软件\STM32H757XIHxL_Prj\DY_FreeRTOS\android\app\src\main\res

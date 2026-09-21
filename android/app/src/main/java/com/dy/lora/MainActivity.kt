@@ -18,7 +18,6 @@ import android.view.animation.DecelerateInterpolator
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
-import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Spinner
@@ -146,11 +145,16 @@ class MainActivity : Activity(), UsbSerialManager.Listener {
         titleStack.addView(text("DY POWER / LORA CONSOLE", 16f, R.color.dy_text).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) })
         titleStack.addView(text("安卓 OTG 调试台 · CH340 / 9600 8N1", 11f, R.color.dy_muted))
         titleRow.addView(titleStack, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        connectionLabel = text("未连接", 12f, R.color.dy_muted).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), 0, dp(10), 0); background = rounded(R.color.dy_surface_2, R.color.dy_line, 1, 18) }
-        titleRow.addView(connectionLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38)))
         header.addView(titleRow)
 
-        val controls = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(0), dp(10), dp(0), 0) }
+        connectionLabel = text("未连接", 12f, R.color.dy_muted).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), 0, dp(12), 0)
+            background = rounded(R.color.dy_surface_2, R.color.dy_line, 1, 6)
+        }
+        header.addView(connectionLabel, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(38)).apply { setMargins(0, dp(10), 0, 0) })
+
+        val controls = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(0), dp(8), dp(0), 0) }
         controls.addView(text("船号", 12f, R.color.dy_muted))
         boatInput = EditText(this).apply { setText("1"); setTextColor(color(R.color.dy_text)); textSize = 14f; inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine(); gravity = Gravity.CENTER; background = rounded(R.color.dy_surface_2, R.color.dy_line, 1, 6); setPadding(dp(8), 0, dp(8), 0) }
         controls.addView(boatInput, LinearLayout.LayoutParams(dp(54), dp(42)).apply { setMargins(dp(7), 0, dp(10), 0) })
@@ -178,6 +182,7 @@ class MainActivity : Activity(), UsbSerialManager.Listener {
         val metrics = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val row1 = LinearLayout(this).apply { weightSum = 2f }
         statusTime = metric(row1, "设备时间", "—", 1f)
+        statusTime.textSize = 13f
         voltageValue = metric(row1, "电池电压", "— V", 1f)
         metrics.addView(row1)
         val row2 = LinearLayout(this).apply { weightSum = 2f }
@@ -229,11 +234,10 @@ class MainActivity : Activity(), UsbSerialManager.Listener {
 
     private fun buildRulesPanel(): View {
         rulesContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val horizontal = HorizontalScrollView(this).apply { isFillViewport = false; addView(rulesContainer) }
         val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        body.addView(text("未使用行目标设备设为“无效”，仍会发送以凑满 35 条。", 11f, R.color.dy_muted).apply { setPadding(0, 0, 0, dp(10)) })
-        body.addView(horizontal, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(660)))
-        return panel("STRATEGY / \$STR", "控制策略 · 35 条", "起始时间 + 工作时长 + 目标设备", body)
+        body.addView(text("填写开始与结束时间，协议持续秒数自动计算。结束早于开始表示次日结束。", 11f, R.color.dy_muted).apply { setPadding(0, 0, 0, dp(10)) })
+        body.addView(rulesContainer, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        return panel("STRATEGY / \$STR", "控制策略 · 35 条", "开始时间 + 结束时间；发送时自动换算协议持续秒数", body)
     }
 
     private fun buildLogPanel(): View {
@@ -248,18 +252,17 @@ class MainActivity : Activity(), UsbSerialManager.Listener {
     private fun renderRules() {
         if (!::rulesContainer.isInitialized) return
         rulesContainer.removeAllViews()
-        val header = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)); background = rounded(R.color.dy_surface_3, R.color.dy_line, 1, 4) }
-        listOf("序号", "时", "分", "秒", "时长", "目标设备").forEachIndexed { index, label ->
-            header.addView(text(label, 11f, R.color.dy_muted).apply { gravity = Gravity.CENTER_VERTICAL }, LinearLayout.LayoutParams(if (index == 5) dp(190) else dp(72), dp(34)))
-        }
-        rulesContainer.addView(header)
         rules.forEachIndexed { index, rule ->
-            val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(dp(4), dp(4), dp(4), dp(4)); background = if (index % 2 == 0) rounded(R.color.dy_surface, R.color.dy_line, 0, 0) else rounded(R.color.dy_surface_2, R.color.dy_line, 0, 0) }
-            row.addView(text("%02d".format(index + 1), 11f, R.color.dy_faint).apply { gravity = Gravity.CENTER_VERTICAL }, LinearLayout.LayoutParams(dp(72), dp(42)))
-            addRuleInput(row, rule.hour, 0, 23) { rule.hour = it }
-            addRuleInput(row, rule.minute, 0, 59) { rule.minute = it }
-            addRuleInput(row, rule.second, 0, 59) { rule.second = it }
-            addRuleInput(row, rule.duration, 0, 65535) { rule.duration = it }
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(10), dp(9), dp(10), dp(10))
+                background = rounded(if (index % 2 == 0) R.color.dy_surface_2 else R.color.dy_surface_3, R.color.dy_line, 1, 6)
+            }
+            var durationText: TextView? = null
+            fun changed(update: (Int) -> Unit) = { value: Int -> update(value); syncRuleDuration(rule); durationText?.text = formatDuration(rule.duration) }
+
+            val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            head.addView(text("规则 %02d".format(index + 1), 13f, R.color.dy_text).apply { setTypeface(typeface, android.graphics.Typeface.BOLD) }, LinearLayout.LayoutParams(0, dp(42), 1f))
             val labels = ProtocolCodec.targets.map { it.second }
             val spinner = Spinner(this).apply {
                 adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, labels)
@@ -269,18 +272,51 @@ class MainActivity : Activity(), UsbSerialManager.Listener {
                     override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) { rule.target = ProtocolCodec.targets[position].first }
                 })
             }
-            row.addView(spinner, LinearLayout.LayoutParams(dp(190), dp(42)))
-            rulesContainer.addView(row)
-            animateIn(row, min(index * 14L, 420L))
+            head.addView(spinner, LinearLayout.LayoutParams(0, dp(42), 2f))
+            card.addView(head)
+
+            card.addView(ruleTimeRow("开始", rule.hour, rule.minute, rule.second, changed { rule.hour = it }, changed { rule.minute = it }, changed { rule.second = it }))
+            card.addView(ruleTimeRow("结束", rule.endHour, rule.endMinute, rule.endSecond, changed { rule.endHour = it }, changed { rule.endMinute = it }, changed { rule.endSecond = it }))
+            durationText = text(formatDuration(rule.duration), 11f, R.color.dy_muted).apply { setPadding(dp(50), dp(5), 0, 0) }
+            card.addView(durationText)
+            rulesContainer.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, 0, dp(8)) })
+            animateIn(card, min(index * 14L, 420L))
         }
     }
+
+    private fun ruleTimeRow(label: String, hour: Int, minute: Int, second: Int, onHour: (Int) -> Unit, onMinute: (Int) -> Unit, onSecond: (Int) -> Unit): View {
+        val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(6), 0, 0) }
+        row.addView(text(label, 11f, R.color.dy_muted).apply { gravity = Gravity.CENTER_VERTICAL }, LinearLayout.LayoutParams(dp(42), dp(40)))
+        fun field(value: Int, max: Int, onChange: (Int) -> Unit) {
+            val holder = LinearLayout(this).apply { gravity = Gravity.CENTER }
+            addRuleInput(holder, value, 0, max, onChange)
+            row.addView(holder, LinearLayout.LayoutParams(0, dp(40), 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
+        }
+        field(hour, 23, onHour)
+        row.addView(text(":", 14f, R.color.dy_faint).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(10), dp(40)))
+        field(minute, 59, onMinute)
+        row.addView(text(":", 14f, R.color.dy_faint).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(10), dp(40)))
+        field(second, 59, onSecond)
+        return row
+    }
+
+    private fun syncRuleDuration(rule: StrategyRule): Int {
+        val start = rule.hour.coerceIn(0, 23) * 3600 + rule.minute.coerceIn(0, 59) * 60 + rule.second.coerceIn(0, 59)
+        val end = rule.endHour.coerceIn(0, 23) * 3600 + rule.endMinute.coerceIn(0, 59) * 60 + rule.endSecond.coerceIn(0, 59)
+        var duration = end - start
+        if (duration < 0) duration += 86400
+        rule.duration = duration.coerceAtMost(65535)
+        return rule.duration
+    }
+
+    private fun formatDuration(seconds: Int): String = "%d:%02d:%02d · %d 秒".format(seconds / 3600, (seconds / 60) % 60, seconds % 60, seconds)
 
     private fun addRuleInput(row: LinearLayout, value: Int, minValue: Int, maxValue: Int, onChange: (Int) -> Unit) {
         val input = EditText(this).apply {
             setText(value.toString()); setTextColor(color(R.color.dy_text)); textSize = 12f; gravity = Gravity.CENTER; inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine(); background = rounded(R.color.dy_surface_2, R.color.dy_line, 1, 5); setPadding(dp(3), 0, dp(3), 0)
             setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) { val parsed = text.toString().toIntOrNull()?.coerceIn(minValue, maxValue) ?: minValue; setText(parsed.toString()); onChange(parsed) } }
         }
-        row.addView(input, LinearLayout.LayoutParams(dp(72), dp(42)))
+        row.addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40)))
     }
 
     private fun renderDevices(sensor: Int) {
@@ -290,8 +326,25 @@ class MainActivity : Activity(), UsbSerialManager.Listener {
             val row = LinearLayout(this).apply { weightSum = 2f }
             pair.forEach { (name, bit) ->
                 val on = sensor and bit != 0
-                val item = text(if (on) "● $name" else "○ $name", 12f, if (on) R.color.dy_teal else R.color.dy_muted).apply { setPadding(dp(10), dp(10), dp(6), dp(10)); background = rounded(if (on) R.color.dy_surface_3 else R.color.dy_surface_2, if (on) R.color.dy_teal else R.color.dy_line, 1, 5) }
-                row.addView(item, LinearLayout.LayoutParams(0, dp(42), 1f).apply { setMargins(0, 0, dp(5), dp(5) })
+                val item = text(
+                    if (on) "● $name" else "○ $name",
+                    12f,
+                    if (on) R.color.dy_teal else R.color.dy_muted
+                ).apply {
+                    setPadding(dp(10), dp(10), dp(6), dp(10))
+                    background = rounded(
+                        if (on) R.color.dy_surface_3 else R.color.dy_surface_2,
+                        if (on) R.color.dy_teal else R.color.dy_line,
+                        1,
+                        5
+                    )
+                }
+                row.addView(
+                    item,
+                    LinearLayout.LayoutParams(0, dp(42), 1f).apply {
+                        setMargins(0, 0, dp(5), dp(5))
+                    }
+                )
             }
             deviceContainer.addView(row)
         }

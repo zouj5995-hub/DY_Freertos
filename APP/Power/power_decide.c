@@ -260,7 +260,10 @@ static void power_collect_protect(const power_input_t *in, uint16_t *req)
  *         req       —— 各设备的请求位数组
  *         pc_target —— 工控机的最终目标状态（供跟随使用）
  * 返回值：true 表示该设备应供电，false 表示应断电
- * 说  明：顺序为 保护否决 > 保持窗口 > 跟随工控机 > 手动 > 任务策略
+ * 说  明：保护类为一票否决（任何情况都断电）；
+ *         其余“要求供电”的来源为【或关系】，任意一个成立即供电、互不否决：
+ *             保持窗口 | 跟随工控机 | 手动控制 | 任务策略
+ *         其中“跟随”只贡献“开”（工控机开则本设备开），工控机关不影响其他来源
  ******************************************************************************/
 static bool power_decide_device(dev_id_t dev, const uint16_t *req, bool pc_target)
 {
@@ -283,11 +286,12 @@ static bool power_decide_device(dev_id_t dev, const uint16_t *req, bool pc_targe
     }
 
     /*==============================
-     *  #3. 跟随类：取被跟随设备的最终结论
+     *  #3. 跟随类：被跟随设备开着就要求本设备开
+     *      —— 只贡献"开"，不否决其他来源（保持窗口/手动/任务策略仍可独立开本设备）
      *==============================*/
-    if ((m & s_follow_mask[dev]) != 0U)
+    if (((m & s_follow_mask[dev]) != 0U) && (pc_target == true))
     {
-        return pc_target;                                   // 跟随工控机
+        return true;                                        // 工控机开着 → 北斗跟着开
     }
 
     /*==============================

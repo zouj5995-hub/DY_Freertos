@@ -1,12 +1,21 @@
 $ErrorActionPreference = 'Stop'
 
 Write-Host 'DY LoRa Console APK build helper'
-Write-Host 'This script expects Android Studio/Gradle, Android SDK 35, and JDK 17.'
+Write-Host 'Build environment is kept on E:\AndroidBuild (JDK/Gradle/Android SDK).'
 
 $gradle = Get-Command gradle -ErrorAction SilentlyContinue
-if (-not $gradle) {
-    Write-Error '未找到 gradle。请用 Android Studio 打开 android/ 后执行 Build -> Build APK(s)，或安装 Gradle 8.10+。'
-}
+$javaHome = 'E:\WORK\jre'
+$sdkRoot = 'E:\AndroidBuild\android-sdk'
+$gradleHome = 'E:\AndroidBuild\.gradle'
+$androidUserHome = 'E:\AndroidBuild\.android'
+$portableGradle = 'E:\AndroidBuild\gradle\gradle-8.10.2\bin\gradle.bat'
+if (Test-Path $javaHome) { $env:JAVA_HOME = $javaHome; $env:PATH = "$javaHome\bin;$env:PATH" }
+if (Test-Path $sdkRoot) { $env:ANDROID_SDK_ROOT = $sdkRoot; $env:ANDROID_HOME = $sdkRoot }
+New-Item -ItemType Directory -Force $gradleHome, $androidUserHome | Out-Null
+$env:GRADLE_USER_HOME = $gradleHome
+$env:ANDROID_USER_HOME = $androidUserHome
+if (-not $gradle -and (Test-Path $portableGradle)) { $gradle = [pscustomobject]@{ Source = $portableGradle } }
+if (-not $gradle) { Write-Error '未找到 Gradle。请安装 Gradle 8.10+，或准备 E:\AndroidBuild 便携构建环境。' }
 
 Push-Location $PSScriptRoot
 try {

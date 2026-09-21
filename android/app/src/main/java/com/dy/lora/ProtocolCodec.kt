@@ -25,6 +25,9 @@ data class StrategyRule(
     var hour: Int = 0,
     var minute: Int = 0,
     var second: Int = 0,
+    var endHour: Int = 0,
+    var endMinute: Int = 0,
+    var endSecond: Int = 0,
     var duration: Int = 0,
     var target: Int = 0xFF
 )
@@ -172,11 +175,17 @@ object ProtocolCodec {
     private fun parseRules(bytes: ByteArray): List<StrategyRule> = buildList {
         repeat(35) { index ->
             val offset = 5 + index * 6
+            val duration = bytes[offset + 3].u8() or (bytes[offset + 4].u8() shl 8)
+            val total = bytes[offset].u8() * 3600 + bytes[offset + 1].u8() * 60 + bytes[offset + 2].u8() + duration
+            val end = total % 86400
             add(StrategyRule(
                 hour = bytes[offset].u8(),
                 minute = bytes[offset + 1].u8(),
                 second = bytes[offset + 2].u8(),
-                duration = bytes[offset + 3].u8() or (bytes[offset + 4].u8() shl 8),
+                endHour = end / 3600,
+                endMinute = (end / 60) % 60,
+                endSecond = end % 60,
+                duration = duration,
                 target = bytes[offset + 5].u8()
             ))
         }
@@ -214,7 +223,7 @@ object ProtocolCodec {
     private val STAR_HEAD = "\$STAR".toByteArray(charset)
     private val STR_HEAD = "\$STR".toByteArray(charset)
 
-    private fun ByteArray.u8() = toInt() and 0xFF
+    private fun Byte.u8() = toInt() and 0xFF
     private fun ByteArray.s16(offset: Int): Int {
         val value = this[offset].u8() or (this[offset + 1].u8() shl 8)
         return if ((value and 0x8000) != 0) value - 0x10000 else value

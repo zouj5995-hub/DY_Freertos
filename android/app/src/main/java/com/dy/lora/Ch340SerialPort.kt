@@ -16,12 +16,15 @@ class Ch340SerialPort(private val device: UsbDevice) {
     companion object {
         private const val TAG = "DY.Ch340"
         private const val USB_WRITE = 0x40
+        private const val USB_READ = 0xC0
         private const val REQ_RESET = 0xA1
         private const val REQ_WRITE_REG = 0x9A
         private const val REQ_MODEM_CTRL = 0xA1
         private const val LCR_ENABLE_RX = 0x80
         private const val LCR_ENABLE_TX = 0x40
         private const val LCR_CS8 = 0x03
+        private const val SCL_DTR = 0x20
+        private const val SCL_RTS = 0x40
 
         fun supports(device: UsbDevice): Boolean {
             if (device.vendorId == 0x1A86) return true
@@ -101,12 +104,18 @@ class Ch340SerialPort(private val device: UsbDevice) {
 
     private fun initializeCh340(): Boolean {
         var ok = true
+        ok = controlIn(0x5F, 0, 0, ByteArray(2)) >= 0 && ok
         ok = control(USB_WRITE, REQ_RESET, 0, 0) && ok
         ok = setBaudRate(9600) && ok
+        ok = controlIn(0x95, 0x2518, 0, ByteArray(2)) >= 0 && ok
         // 8 data bits, no parity, 1 stop bit; this is the fixed LoRa link format.
         ok = control(USB_WRITE, REQ_WRITE_REG, 0x2518, LCR_ENABLE_RX or LCR_ENABLE_TX or LCR_CS8) && ok
+        ok = controlIn(0x95, 0x0706, 0, ByteArray(2)) >= 0 && ok
         // CH34x device mode / line activation sequence used by the Linux and Android drivers.
         ok = control(USB_WRITE, REQ_MODEM_CTRL, 0x501F, 0xD90A) && ok
+        ok = setBaudRate(9600) && ok
+        // Assert DTR/RTS. Many LoRa carrier boards ignore them, but some CH340 breakouts gate TX.
+        ok = control(USB_WRITE, 0xA4, (SCL_DTR or SCL_RTS).inv() and 0xFFFF, 0) && ok
         return ok
     }
 
@@ -122,8 +131,8 @@ class Ch340SerialPort(private val device: UsbDevice) {
         if (factor > 0xFFF0) return false
         factor = 0x10000 - factor
         divisor = divisor or 0x0080
-        val valueHigh = ((factor and 0xFF00) or divisor).toInt()
-        val valueLow = (factor and 0xFF).toInt()
+        val valueHigh = ((factor and 0xFF00L) or divisor.toLong()).toInt()
+        val valueLow = (factor and 0xFFL).toInt()
         return control(USB_WRITE, REQ_WRITE_REG, 0x1312, valueHigh) &&
             control(USB_WRITE, REQ_WRITE_REG, 0x0F2C, valueLow)
     }
@@ -132,4 +141,7 @@ class Ch340SerialPort(private val device: UsbDevice) {
         val result = connection?.controlTransfer(requestType, request, value, index, null, 0, 1000) ?: -1
         return result >= 0
     }
+
+    private fun controlIn(request: Int, value: Int, index: Int, buffer: ByteArray): Int =
+        connection?.controlTransfer(USB_READ, request, value, index, buffer, buffer.size, 1000) ?: -1
 }

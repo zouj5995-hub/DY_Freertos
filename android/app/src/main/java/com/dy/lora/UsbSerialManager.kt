@@ -28,7 +28,10 @@ class UsbSerialManager(
     }
 
     private val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-    private val ioExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    // A blocking read loop must never share its executor with writes. Otherwise every send waits
+    // forever behind the long-running reader task.
+    private val readExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val writeExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val reading = AtomicBoolean(false)
     private var serial: Ch340SerialPort? = null
     private var openedDevice: UsbDevice? = null
@@ -58,7 +61,8 @@ class UsbSerialManager(
     fun unregister() {
         try { context.unregisterReceiver(receiver) } catch (_: Exception) { }
         close()
-        ioExecutor.shutdownNow()
+        readExecutor.shutdownNow()
+        writeExecutor.shutdownNow()
     }
 
     fun requestFirstSupportedDevice() {
@@ -69,7 +73,8 @@ class UsbSerialManager(
         }
         if (usbManager.hasPermission(device)) openDevice(device) else {
             val intent = Intent(ACTION_USB_PERMISSION).setPackage(context.packageName)
-            val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0
+            // UsbManager adds the permission result and device as fill-in extras.
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
             usbManager.requestPermission(device, PendingIntent.getBroadcast(context, 0, intent, flags))
             listener.onTransportLog("等待 USB 权限确认…")
         }
@@ -77,7 +82,7 @@ class UsbSerialManager(
 
     fun send(bytes: ByteArray): Boolean {
         val transport = serial ?: return false
-        ioExecutor.execute {
+        writeExecutor.execute {
             val count = transport.write(bytes)
             if (count == bytes.size) listener.onTransportLog("发送 ${bytes.size} 字节") else listener.onTransportLog("串口发送失败：$count / ${bytes.size}", true)
         }
@@ -117,7 +122,7 @@ class UsbSerialManager(
 
     private fun startReader(transport: Ch340SerialPort) {
         if (!reading.compareAndSet(false, true)) return
-        ioExecutor.execute {
+        readExecutor.execute {
             val buffer = ByteArray(512)
             while (reading.get() && transport.isOpen) {
                 val count = transport.read(buffer)

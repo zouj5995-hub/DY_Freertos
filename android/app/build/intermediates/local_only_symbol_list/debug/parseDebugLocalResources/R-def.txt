@@ -1,0 +1,18 @@
+R_DEF: Internal format may change without notice
+local
+color dy_accent
+color dy_bg
+color dy_danger
+color dy_faint
+color dy_line
+color dy_muted
+color dy_ok
+color dy_surface
+color dy_surface_2
+color dy_surface_3
+color dy_teal
+color dy_text
+drawable ic_launcher_foreground
+string app_name
+style Theme.DYLoRa
+xml device_filter

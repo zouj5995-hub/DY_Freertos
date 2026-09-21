@@ -1,0 +1,16 @@
+com.dy.lora.console:xml/device_filter = 0x7f050000
+com.dy.lora.console:style/Theme.DYLoRa = 0x7f040000
+com.dy.lora.console:string/app_name = 0x7f030000
+com.dy.lora.console:drawable/ic_launcher_foreground = 0x7f020000
+com.dy.lora.console:color/dy_surface_3 = 0x7f010009
+com.dy.lora.console:color/dy_text = 0x7f01000b
+com.dy.lora.console:color/dy_accent = 0x7f010000
+com.dy.lora.console:color/dy_surface = 0x7f010007
+com.dy.lora.console:color/dy_ok = 0x7f010006
+com.dy.lora.console:color/dy_teal = 0x7f01000a
+com.dy.lora.console:color/dy_bg = 0x7f010001
+com.dy.lora.console:color/dy_surface_2 = 0x7f010008
+com.dy.lora.console:color/dy_line = 0x7f010004
+com.dy.lora.console:color/dy_danger = 0x7f010002
+com.dy.lora.console:color/dy_muted = 0x7f010005
+com.dy.lora.console:color/dy_faint = 0x7f010003

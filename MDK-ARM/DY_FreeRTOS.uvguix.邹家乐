@@ -3732,9 +3732,9 @@
       </Doc>
       <Doc>
         <Name>../Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal.c</Name>
-        <ColumnNumber>23</ColumnNumber>
+        <ColumnNumber>3</ColumnNumber>
         <TopLine>371</TopLine>
-        <CurrentLine>392</CurrentLine>
+        <CurrentLine>403</CurrentLine>
         <Folding>1</Folding>
         <ContractedFolders></ContractedFolders>
         <PaneID>0</PaneID>

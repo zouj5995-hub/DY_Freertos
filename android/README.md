@@ -23,7 +23,7 @@
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-当前仓库环境没有 Android SDK/Gradle，因此这里交付的是完整可导入工程，未在本机生成二进制 APK。
+本仓库已附带 `build-apk.ps1`。在本工作区中，构建环境放在 `E:\AndroidBuild`，不会占用 C 盘；脚本会自动使用该目录下的 JDK/Gradle/Android SDK。
 
 ## 手机现场连接
 
