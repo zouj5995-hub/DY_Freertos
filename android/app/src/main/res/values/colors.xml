@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dy_bg">#0C1117</color>
+    <color name="dy_surface">#111820</color>
+    <color name="dy_surface_2">#16212B</color>
+    <color name="dy_surface_3">#1B2934</color>
+    <color name="dy_line">#2A3945</color>
+    <color name="dy_text">#EDF2F4</color>
+    <color name="dy_muted">#8D9BA5</color>
+    <color name="dy_faint">#5D6B75</color>
+    <color name="dy_accent">#F4B942</color>
+    <color name="dy_teal">#63D6C3</color>
+    <color name="dy_ok">#62D58D</color>
+    <color name="dy_danger">#EF6A72</color>
+</resources>

@@ -17,8 +17,16 @@ extern "C" {
 #include <stdint.h>
 
 /* Exported constants --------------------------------------------------------*/
-#define LORA_RX_BUF_SIZE        128U    // 接收缓冲大小（字节）
-#define LORA_FRAME_IDLE_MS      20U     // 线路空闲超过该时间即认为一帧结束
+#define LORA_RX_BUF_SIZE        256U    // 接收缓冲大小（字节）：须容纳最长的 $STR 规则包（222 字节）
+#define LORA_FRAME_IDLE_MS      100U    // 线路空闲超过该时间即认为一帧结束（兜底，主要供变长帧 $BDRMC）
+
+/* 各命令帧的总长度：用于“按帧长判定整帧收齐”，须与 protocol.h 的 PROTO_*_LEN 保持一致 */
+#define LORA_FRAME_LEN_READ     13U     // $READ   读设备状态（下行）
+#define LORA_FRAME_LEN_GETSTR   15U     // $GETSTR 读控制策略（下行）
+#define LORA_FRAME_LEN_REST     13U     // $REST   重启系统（下行）
+#define LORA_FRAME_LEN_ACK      14U     // $ACK    命令应答（上行）
+#define LORA_FRAME_LEN_STAR     30U     // $STAR   状态上报（上行）
+#define LORA_FRAME_LEN_STR     222U     // $STR    控制策略（上行/下行）
 
 /* Exported functions prototypes ---------------------------------------------*/
 void lora_init(void);                                       // 初始化引脚并使模块进入透传模式

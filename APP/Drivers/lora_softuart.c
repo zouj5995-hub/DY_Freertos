@@ -18,7 +18,6 @@
 
 /* Private define ------------------------------------------------------------*/
 #define LORA_BIT_TIME_US    (1000000U / BOARD_LORA_BAUD)   // 一个位的时间（微秒）
-#define LORA_POLL_MAX_MS    60U                          // 单次轮询最长占用时间（毫秒）：够“等起始位 + 收完一整帧”
 
 /* Private variables ---------------------------------------------------------*/
 static uint8_t    s_rx_buf[LORA_RX_BUF_SIZE];      // 接收缓冲
@@ -32,6 +31,7 @@ static uint32_t   s_tx_bytes   = 0U;               // 累计发送字节数（�
 static bool    lora_rx_line_low(void);             // 读 RX 线是否为低（起始位检测）
 static void    lora_tx_bit(bool high);             // 输出一个位并保持一个位时间
 static uint8_t lora_rx_byte(void);                 // 采样一个字节（调用前已对齐到数据位）
+static uint16_t lora_expect_len(void);             // 依据帧头返回该帧期望总长（0 表示未知或帧头未收全）
 
 /* Private functions ---------------------------------------------------------*/
 
@@ -281,24 +281,79 @@ void lora_send(const uint8_t *data, uint16_t len)
 }
 
 /*******************************************************************************
+ * 函数名：lora_expect_len
+ * 功  能：依据已收到的帧头返回该帧的期望总长度
+ * 参  数：无
+ * 返回值：期望总长度（字节）；0 表示帧头未知或尚未收全帧头
+ * 说  明：LoRa 模块对超过单包上限的数据会自动拆成多包发送，包与包之间存在较长
+ *          间隔。若仅按“线路空闲”判帧，会把第一包误当成完整帧。故优先按已知
+ *          帧长判定：长度未达期望值就继续等待后续分包。
+ *          注意：$BDRMC 为变长帧，不在表中，由空闲超时兜底判定。
+ ******************************************************************************/
+static uint16_t lora_expect_len(void)
+{
+    /* 帧头 —— 帧头长度 —— 整帧总长 */
+    static const struct
+    {
+        const char *head;
+        uint8_t     head_len;
+        uint16_t    frame_len;
+    } s_frame_tab[] =
+    {
+        { "$ACK",    4U, LORA_FRAME_LEN_ACK    },
+        { "$STAR",   5U, LORA_FRAME_LEN_STAR   },
+        { "$STR",    4U, LORA_FRAME_LEN_STR    },
+        { "$READ",   5U, LORA_FRAME_LEN_READ   },
+        { "$GETSTR", 7U, LORA_FRAME_LEN_GETSTR },
+        { "$REST",   5U, LORA_FRAME_LEN_REST   },
+    };
+    uint8_t i;
+
+    for (i = 0U; i < (uint8_t)(sizeof(s_frame_tab) / sizeof(s_frame_tab[0])); i++)
+    {
+        if ((s_rx_len >= s_frame_tab[i].head_len) &&
+            (memcmp(s_rx_buf, s_frame_tab[i].head, s_frame_tab[i].head_len) == 0))
+        {
+            return s_frame_tab[i].frame_len;
+        }
+    }
+
+    return 0U;                                          // 未知帧（如 $BDRMC），交由空闲超时兜底
+}
+
+/*******************************************************************************
  * 函数名：lora_poll
  * 功  能：接收轮询：判定一帧是否接收完毕（采样实际由 lora_rx_isr 在中断里完成）
  * 参  数：无
  * 返回值：无
- * 说  明：起始位由 PB5 下降沿中断精确捕获，本函数只负责“线路安静足够久
- *          就把这一帧交给上层”，可以低频调用，不再依赖轮询时机是否踩准
+ * 说  明：① 优先按已知帧长判定：收满期望长度即认为整帧到齐，这样即使 LoRa 模块
+ *           把长包（如 222 字节的 $STR）拆成多包发送，也能正确拼回一帧；
+ *         ② 兜底按线路空闲判定：用于 $BDRMC 这类变长帧或未知帧。
  ******************************************************************************/
 void lora_poll(void)
 {
+    uint16_t expect;
+
     taskENTER_CRITICAL();
 
-    /*==============================
-     *  #1. 尚无待取帧且线路已安静足够久，则本帧接收完毕
-     *==============================*/
-    if ((s_rx_len > 0U) && (s_rx_ready == false) &&
-        ((xTaskGetTickCount() - s_last_rx_tick) >= pdMS_TO_TICKS(LORA_FRAME_IDLE_MS)))
+    if ((s_rx_len > 0U) && (s_rx_ready == false))
     {
-        s_rx_ready = true;                              // 交给上层取走
+        expect = lora_expect_len();                     // 按帧头取该帧的期望总长
+
+        /*==============================
+         *  #1. 已收满整帧长度：立即交付（可容忍模块拆包）
+         *==============================*/
+        if ((expect > 0U) && (s_rx_len >= expect))
+        {
+            s_rx_ready = true;                          // 交给上层取走
+        }
+        /*==============================
+         *  #2. 兜底：线路已安静足够久（变长帧或未知帧）
+         *==============================*/
+        else if ((xTaskGetTickCount() - s_last_rx_tick) >= pdMS_TO_TICKS(LORA_FRAME_IDLE_MS))
+        {
+            s_rx_ready = true;                          // 交给上层取走
+        }
     }
 
     taskEXIT_CRITICAL();

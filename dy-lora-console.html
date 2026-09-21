@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#11161d">
+  <meta name="description" content="DY 电源板 LoRa 现场调试台：通过 Web Serial 读取状态、编辑策略、校时和查看完整通信日志。">
+  <title>DY 电源板 LoRa 调试台</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2311161d'/%3E%3Cpath d='M18 44V20h8v16h20v8H18Zm8-8 11-16h9L35 36h-9Z' fill='%23f4b942'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1117;
+      --surface: #111820;
+      --surface-2: #16212b;
+      --surface-3: #1b2934;
+      --line: #2a3945;
+      --line-strong: #3b4d5b;
+      --text: #edf2f4;
+      --muted: #8d9ba5;
+      --faint: #5d6b75;
+      --accent: #f4b942;
+      --accent-2: #63d6c3;
+      --danger: #ef6a72;
+      --ok: #62d58d;
+      --warn: #f4b942;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --sans: "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+      --radius: 8px;
+      --shadow: 0 16px 44px rgba(0,0,0,.2);
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); scrollbar-gutter: stable; overflow-x: clip; }
+    body { overflow-x: clip; }
+    body { margin: 0; min-width: 320px; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+    button, input, select { font: inherit; }
+    button { border: 0; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .skip-link { position: fixed; left: 12px; top: -50px; z-index: 20; padding: 8px 12px; background: var(--accent); color: #16120a; border-radius: 6px; font-weight: 700; text-decoration: none; transition: top .18s ease; }
+    .skip-link:focus { top: 12px; }
+    .app-shell { min-height: 100vh; }
+    .topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 20px; min-height: 74px; padding: 14px clamp(16px, 3vw, 42px); background: rgba(12,17,23,.95); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 220px; }
+    .brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--accent); border-radius: 7px; color: var(--accent); font-weight: 800; letter-spacing: -.08em; }
+    .brand-title { margin: 0; font-size: 16px; letter-spacing: .08em; text-transform: uppercase; }
+    .brand-subtitle { margin: 1px 0 0; color: var(--muted); font-size: 11px; letter-spacing: .06em; }
+    .topbar-controls { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+    .connection-state { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); white-space: nowrap; }
+    .connection-state[data-connected="true"] { color: var(--ok); border-color: rgba(98,213,141,.42); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+    .connection-state[data-connected="true"] .status-dot { background: var(--ok); box-shadow: 0 0 0 4px rgba(98,213,141,.1); animation: breathe 2.6s ease-in-out infinite; }
+    .port-name { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+    .field-inline { display: flex; align-items: center; gap: 7px; color: var(--muted); }
+    .field-inline input { width: 58px; }
+    .main { width: min(1700px, 100%); margin: 0 auto; padding: 26px clamp(16px, 3vw, 42px) 54px; }
+    .intro { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 6px 0 24px; }
+    .eyebrow { margin: 0 0 8px; color: var(--accent); font: 600 11px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; }
+    h1 { margin: 0; max-width: 750px; font-size: clamp(28px, 4.5vw, 58px); line-height: 1.12; letter-spacing: -.04em; font-weight: 750; }
+    .intro-note { max-width: 360px; margin: 0; color: var(--muted); text-align: right; }
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.16fr) minmax(340px, .84fr); gap: 16px; align-items: start; min-width: 0; }
+    .stack { display: grid; gap: 16px; min-width: 0; }
+    .panel { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 17px 18px 14px; border-bottom: 1px solid var(--line); min-width: 0; }
+    .panel-kicker { margin: 0 0 3px; color: var(--faint); font: 600 10px/1.2 var(--mono); letter-spacing: .13em; text-transform: uppercase; }
+    .panel-title { margin: 0; font-size: 17px; letter-spacing: -.015em; }
+    .panel-subtitle { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .panel-body { padding: 18px; min-width: 0; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .metric { min-width: 0; min-height: 104px; padding: 13px 14px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; }
+    .metric-label { color: var(--muted); font-size: 11px; }
+    .metric-value { display: block; margin-top: 10px; font: 600 clamp(20px, 2.5vw, 30px)/1 var(--mono); letter-spacing: -.05em; white-space: nowrap; }
+    .metric:first-child .metric-value { font-size: clamp(14px, 1.55vw, 20px); line-height: 1.25; letter-spacing: -.075em; white-space: normal; overflow-wrap: anywhere; }
+    .metric-unit { color: var(--muted); font: 12px var(--sans); letter-spacing: 0; }
+    .status-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 11px 13px; background: #0e151c; border: 1px solid var(--line); border-left: 3px solid var(--accent-2); border-radius: 5px; }
+    .status-strip strong { color: var(--accent-2); font-weight: 650; }
+    .status-strip small { color: var(--muted); }
+    .device-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .device { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; color: var(--muted); transition: border-color .2s ease, color .2s ease, background-color .2s ease; }
+    .device[data-on="true"] { color: var(--text); border-color: rgba(99,214,195,.54); background: #172a2e; }
+    .device-light { width: 9px; height: 9px; flex: none; border-radius: 50%; background: #4a5962; }
+    .device[data-on="true"] .device-light { background: var(--accent-2); box-shadow: 0 0 0 4px rgba(99,214,195,.12); }
+    .device-code { margin-left: auto; color: var(--faint); font: 10px var(--mono); }
+    .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .btn { min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 5px; color: var(--text); background: var(--surface-3); cursor: pointer; transition: transform .16s ease, border-color .16s ease, background-color .16s ease, opacity .16s ease; }
+    .btn:hover:not(:disabled) { border-color: var(--accent); background: #24313a; }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled { cursor: not-allowed; opacity: .38; }
+    .btn-primary { color: #19140a; background: var(--accent); border-color: var(--accent); font-weight: 750; }
+    .btn-primary:hover:not(:disabled) { background: #ffcb67; border-color: #ffcb67; }
+    .btn-danger { color: #ffdfe1; border-color: rgba(239,106,114,.52); background: rgba(128,34,45,.38); }
+    .btn-quiet { color: var(--muted); background: transparent; border-color: var(--line); }
+    .btn-icon { width: 34px; min-height: 34px; padding: 0; }
+    .command-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+    .select-wrap, .input-wrap { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    select, input { min-height: 36px; color: var(--text); background: #0e151c; border: 1px solid var(--line-strong); border-radius: 5px; padding: 0 9px; }
+    input[type="number"] { font-family: var(--mono); }
+    input[type="datetime-local"] { min-width: 215px; font-family: var(--mono); }
+    .hint { color: var(--muted); font-size: 12px; }
+    .hint strong { color: var(--accent); font-weight: 650; }
+    .time-box { display: grid; gap: 10px; }
+    .time-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .time-row label { color: var(--muted); font-size: 12px; }
+    .utc-note { padding: 10px 12px; border: 1px dashed #66522c; border-radius: 5px; color: #d3b36a; background: rgba(104,76,23,.13); font-size: 12px; }
+    .table-wrap { min-width: 0; max-width: 100%; max-height: 600px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    th { position: sticky; top: 0; z-index: 1; padding: 10px 9px; text-align: left; color: var(--muted); background: #18242d; border-bottom: 1px solid var(--line-strong); font: 600 11px var(--mono); letter-spacing: .04em; }
+    td { padding: 7px 9px; border-bottom: 1px solid rgba(42,57,69,.64); vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .index-cell { width: 54px; color: var(--faint); font: 12px var(--mono); }
+    .rule-input { width: 74px; min-height: 32px; padding: 0 7px; }
+    .rule-duration { color: var(--muted); font: 11px var(--mono); white-space: nowrap; }
+    .rule-select { min-height: 32px; min-width: 190px; }
+    .table-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .table-actions p { margin: 0; color: var(--muted); font-size: 12px; }
+    .table-actions strong { color: var(--text); }
+    .log-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .log-actions { display: flex; gap: 7px; }
+    .log-list { display: grid; gap: 7px; max-height: 470px; overflow: auto; padding-right: 2px; }
+    .log-entry { padding: 10px 11px; background: #0e151c; border: 1px solid var(--line); border-left: 3px solid var(--line-strong); border-radius: 5px; }
+    .log-entry[data-direction="tx"] { border-left-color: var(--accent); }
+    .log-entry[data-direction="rx"] { border-left-color: var(--accent-2); }
+    .log-entry[data-level="error"] { border-left-color: var(--danger); background: rgba(117,31,40,.2); }
+    .log-head { display: flex; align-items: baseline; gap: 8px; font-size: 11px; }
+    .log-direction { font: 700 10px var(--mono); letter-spacing: .08em; }
+    .log-direction.tx { color: var(--accent); }
+    .log-direction.rx { color: var(--accent-2); }
+    .log-time { color: var(--faint); font: 10px var(--mono); }
+    .log-summary { margin-left: auto; color: var(--muted); text-align: right; }
+    .log-hex { display: block; margin-top: 6px; color: #d8e1e6; font: 11px/1.5 var(--mono); overflow-wrap: anywhere; }
+    .empty-state { padding: 30px 16px; text-align: center; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: 6px; }
+    .history-wrap { margin-top: 16px; }
+    .history-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    .history-head h3 { margin: 0; font-size: 13px; }
+    .history-head span { color: var(--faint); font: 10px var(--mono); }
+    .history-table { min-width: 540px; }
+    .history-table th, .history-table td { padding: 7px 8px; font-size: 11px; }
+    .history-table th { position: static; }
+    .footer { display: flex; justify-content: space-between; gap: 20px; padding-top: 24px; color: var(--faint); font-size: 11px; }
+    .footer code { color: var(--muted); font-family: var(--mono); }
+    dialog { width: min(440px, calc(100vw - 32px)); padding: 0; color: var(--text); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+    dialog::backdrop { background: rgba(3,7,10,.72); backdrop-filter: blur(3px); }
+    .dialog-body { padding: 20px; }
+    .dialog-body h2 { margin: 0 0 8px; font-size: 18px; }
+    .dialog-body p { margin: 0; color: var(--muted); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    .toast-region { position: fixed; right: 18px; bottom: 18px; z-index: 30; display: grid; gap: 8px; width: min(360px, calc(100vw - 36px)); pointer-events: none; }
+    .toast { padding: 11px 13px; background: #17232b; border: 1px solid var(--line-strong); border-left: 3px solid var(--accent); border-radius: 5px; box-shadow: var(--shadow); animation: toast-in .22s ease both; }
+    .toast[data-tone="error"] { border-left-color: var(--danger); }
+    .toast[data-tone="success"] { border-left-color: var(--ok); }
+    .toast small { display: block; margin-top: 2px; color: var(--muted); }
+    .demo-banner { display: none; margin-bottom: 16px; padding: 9px 12px; border: 1px solid #66522c; border-radius: 5px; color: #e0c178; background: rgba(104,76,23,.14); }
+    body.demo .demo-banner { display: block; }
+    @keyframes breathe { 0%,100% { opacity: .72; } 50% { opacity: 1; } }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; } .intro-note { max-width: 460px; } }
+    @media (max-width: 720px) {
+      .topbar { align-items: flex-start; flex-direction: column; gap: 12px; }
+      .topbar-controls { width: auto; align-self: stretch; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: 0; }
+      .connection-state { flex: 1 1 100%; min-width: 0; }
+      .topbar-controls .field-inline { flex: 0 0 auto; }
+      .topbar-controls #connectBtn { flex: 1 1 128px; min-width: 0; }
+      .topbar-controls #disconnectBtn { flex: 0 0 auto; }
+      .port-name { max-width: 150px; }
+      .panel-head { flex-wrap: wrap; }
+      .panel-head > div { max-width: 100%; }
+      .panel-head > .hint { flex: 1 1 100%; max-width: 100%; overflow-wrap: anywhere; }
+      .status-strip { align-items: flex-start; flex-wrap: wrap; }
+      .status-strip .hint { margin-left: auto; }
+      .intro { display: block; }
+      .intro-note { max-width: 100%; margin-top: 12px; text-align: left; overflow-wrap: anywhere; }
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .device-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .command-meta { align-items: flex-start; flex-direction: column; }
+      .footer { display: block; }
+      .footer span { display: block; margin-top: 6px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主内容</a>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="DY 电源板 LoRa 调试台">
+        <div class="brand-mark" aria-hidden="true">DY</div>
+        <div>
+          <p class="brand-title">DY Power / LoRa Console</p>
+          <p class="brand-subtitle">现场链路调试台 · 9600 / 8N1</p>
+        </div>
+      </div>
+      <div class="topbar-controls">
+        <div class="connection-state" id="connectionState" data-connected="false" aria-live="polite"><span class="status-dot" aria-hidden="true"></span><span id="connectionLabel">未连接</span><span class="port-name" id="portName">选择串口开始</span></div>
+        <label class="field-inline" for="boatNumber">船号 <input id="boatNumber" type="number" min="1" max="255" value="1" inputmode="numeric" aria-label="船号，1 到 255"></label>
+        <button class="btn btn-primary" id="connectBtn" type="button"><span aria-hidden="true">↗</span>连接串口</button>
+        <button class="btn btn-quiet" id="disconnectBtn" type="button" disabled><span aria-hidden="true">×</span>断开</button>
+      </div>
+    </header>
+
+    <main class="main" id="main">
+      <div class="intro">
+        <div><p class="eyebrow">现场维护工作台 / 01</p><h1>让每一帧状态，都能被看见。</h1></div>
+        <p class="intro-note">协议帧原样记录，状态按实机字段解析。连接后即可读取设备、校时和维护 35 条控制策略。</p>
+      </div>
+      <div class="demo-banner">演示模式：当前数据为本地模拟帧，仅用于检查界面。真实串口仍需通过“连接串口”并在安全上下文中授权。</div>
+
+      <div class="workspace">
+        <div class="stack">
+          <section class="panel" aria-labelledby="statusTitle">
+            <div class="panel-head"><div><p class="panel-kicker">telemetry / $STAR</p><h2 class="panel-title" id="statusTitle">设备状态</h2><p class="panel-subtitle">来自电源板的最近一帧状态上报</p></div><span class="hint" id="statusAge">尚未收到状态</span></div>
+            <div class="panel-body">
+              <div class="metric-grid">
+                <div class="metric"><span class="metric-label">设备时间</span><strong class="metric-value" id="metricTime">—</strong></div>
+                <div class="metric"><span class="metric-label">电池电压</span><strong class="metric-value" id="metricVoltage">— <span class="metric-unit">V</span></strong></div>
+                <div class="metric"><span class="metric-label">环境 / NTC1</span><strong class="metric-value" id="metricNtc1">— <span class="metric-unit">℃</span></strong></div>
+                <div class="metric"><span class="metric-label">鳍片 / NTC2</span><strong class="metric-value" id="metricNtc2">— <span class="metric-unit">℃</span></strong></div>
+              </div>
+              <div class="status-strip"><div><strong id="boardTemp">电源板温度 — ℃</strong><small id="sensorSummary">等待 $STAR 状态帧</small></div><div class="hint">船号 <strong id="statusBoat">01</strong> · 错误码 <strong id="statusError">—</strong></div></div>
+              <div class="device-grid" id="deviceGrid" aria-label="设备上电状态" style="margin-top: 14px"></div>
+              <div class="history-wrap">
+                <div class="history-head"><h3>最近状态帧</h3><span id="historyCount">0 / 200</span></div>
+                <div class="table-wrap"><table class="history-table"><thead><tr><th>接收时间</th><th>设备时间</th><th>电压</th><th>温度</th><th>原始帧</th></tr></thead><tbody id="historyBody"><tr><td colspan="5"><div class="empty-state">连接后点击“读设备状态”，这里会保留最近 200 条记录。</div></td></tr></tbody></table></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel" aria-labelledby="rulesTitle">
+            <div class="panel-head"><div><p class="panel-kicker">strategy / $STR</p><h2 class="panel-title" id="rulesTitle">控制策略 · 35 条</h2><p class="panel-subtitle">未使用条目标记为“无效”，发送时仍会完整凑满 222 字节。</p></div><span class="hint" id="rulesState">本地草稿</span></div>
+            <div class="panel-body">
+              <div class="table-actions"><p>每条规则为 <strong>起始时间 + 工作时长 + 目标设备</strong>。</p><button class="btn btn-quiet" id="resetRulesBtn" type="button"><span aria-hidden="true">↺</span>恢复空表</button></div>
+              <div class="table-wrap"><table><thead><tr><th>序号</th><th>起时</th><th>起分</th><th>起秒</th><th>工作时长（秒）</th><th>换算</th><th>目标设备</th></tr></thead><tbody id="rulesBody"></tbody></table></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="stack">
+          <section class="panel" aria-labelledby="commandsTitle">
+            <div class="panel-head"><div><p class="panel-kicker">command deck</p><h2 class="panel-title" id="commandsTitle">命令面板</h2><p class="panel-subtitle">所有命令都会记录发送帧与设备回应。</p></div><span class="hint">船号 <strong id="commandBoat">01</strong></span></div>
+            <div class="panel-body">
+              <div class="action-grid">
+                <button class="btn btn-primary command-btn" data-command="read" type="button" disabled><span aria-hidden="true">⌁</span>读设备状态</button>
+                <button class="btn command-btn" data-command="getstr" type="button" disabled><span aria-hidden="true">≡</span>读控制策略</button>
+                <button class="btn command-btn" data-command="str" type="button" disabled><span aria-hidden="true">⇧</span>下发控制策略</button>
+                <button class="btn command-btn" data-command="rest" type="button" disabled><span aria-hidden="true">↻</span>重启板子</button>
+              </div>
+              <div class="command-meta"><label class="select-wrap" for="pollSelect">自动轮询 <select id="pollSelect"><option value="0">关闭</option><option value="2000">每 2 秒</option><option value="5000">每 5 秒</option><option value="10000">每 10 秒</option><option value="30000">每 30 秒</option></select></label><span class="hint" id="pollState">轮询已关闭</span></div>
+            </div>
+          </section>
+
+          <section class="panel" aria-labelledby="timeTitle">
+            <div class="panel-head"><div><p class="panel-kicker">clock / $BDRMC</p><h2 class="panel-title" id="timeTitle">北斗校时</h2><p class="panel-subtitle">校时指令为纯文本，不回 ACK。</p></div></div>
+            <div class="panel-body time-box">
+              <div class="time-row"><label for="timeInput">目标时间</label><input id="timeInput" type="datetime-local" step="1"></div>
+              <div class="time-row"><button class="btn btn-primary command-btn" data-command="time" type="button" disabled><span aria-hidden="true">⌚</span>发送校时</button><button class="btn btn-quiet" id="nowTimeBtn" type="button">使用电脑时间</button></div>
+              <div class="utc-note">发送的是 <strong>UTC 时间（北京时间 − 8 小时）</strong>。无应答属正常；发送后请读取设备状态确认。</div>
+            </div>
+          </section>
+
+          <section class="panel" aria-labelledby="logTitle">
+            <div class="panel-head"><div><p class="panel-kicker">wire log / raw bytes</p><h2 class="panel-title" id="logTitle">通信日志</h2><p class="panel-subtitle">最多保留 1000 条，红色表示 CRC 或设备错误。</p></div><span class="hint" id="logCount">0 条</span></div>
+            <div class="panel-body">
+              <div class="log-toolbar"><select id="logFilter" aria-label="日志方向过滤"><option value="all">全部方向</option><option value="tx">仅发送</option><option value="rx">仅接收</option><option value="error">仅错误</option></select><div class="log-actions"><button class="btn btn-quiet btn-icon" id="clearLogBtn" type="button" title="清空日志" aria-label="清空日志">⌫</button><button class="btn btn-quiet" id="exportLogBtn" type="button"><span aria-hidden="true">↓</span>导出 TXT</button></div></div>
+              <div class="log-list" id="logList"><div class="empty-state">还没有通信记录。请先连接串口。</div></div>
+            </div>
+          </section>
+        </div>
+      </div>
+      <footer class="footer"><span>协议：Modbus CRC16 · CRC 大端 · 数值字段小端</span><span>浏览器要求：Chrome / Edge 89+ · <code>localhost</code> 安全上下文</span></footer>
+    </main>
+  </div>
+
+  <dialog id="confirmDialog"><div class="dialog-body"><h2 id="confirmTitle">请确认操作</h2><p id="confirmMessage"></p><div class="dialog-actions"><button class="btn btn-quiet" id="confirmCancel" type="button">取消</button><button class="btn btn-danger" id="confirmOk" type="button">继续</button></div></div></dialog>
+  <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+      const textEncoder = new TextEncoder();
+      const textDecoder = new TextDecoder();
+      const TAIL = textEncoder.encode('$OVER');
+      const FRAME_SPECS = [
+        { head: '$ACK', length: 14 },
+        { head: '$STAR', length: 30 },
+        { head: '$STR', length: 222 }
+      ];
+      const DEVICES = [
+        { name: '工控机 IPC', bit: 0x80, code: '0x80' },
+        { name: '声纳 SONAR', bit: 0x40, code: '0x40' },
+        { name: '备用三 BK3', bit: 0x20, code: '0x20' },
+        { name: '雷达 RADAR', bit: 0x10, code: '0x10' },
+        { name: '摄像头 CAMERA', bit: 0x08, code: '0x08' },
+        { name: '北斗 BD', bit: 0x04, code: '0x04' },
+        { name: '备用一 BK1', bit: 0x02, code: '0x02' },
+        { name: '备用二 BK2', bit: 0x01, code: '0x01' }
+      ];
+      const TARGETS = [
+        [0x00, '工控机'], [0x01, '雷达'], [0x02, '声纳'], [0x03, '摄像头'], [0x04, '北斗'],
+        [0x05, '备用一'], [0x06, '备用二'], [0x07, '备用三'], [0x0A, '工控机 + 雷达 + 声纳 + 摄像头'],
+        [0x0B, '工控机 + 雷达 + 摄像头'], [0x0C, '工控机 + 雷达'], [0x0D, '工控机 + 声纳'], [0xFF, '无效']
+      ];
+      const state = {
+        port: null,
+        reader: null,
+        readLoopRunning: false,
+        rxBuffer: new Uint8Array(0),
+        rxTimer: null,
+        logs: [],
+        statusHistory: [],
+        pollTimer: null,
+        confirmHandler: null,
+        rules: Array.from({ length: 35 }, () => ({ hour: 0, minute: 0, second: 0, duration: 0, target: 0xFF })),
+        latestStatus: null,
+        demo: new URLSearchParams(location.search).has('demo')
+      };
+
+      const connectionState = $('#connectionState');
+      const connectBtn = $('#connectBtn');
+      const disconnectBtn = $('#disconnectBtn');
+      const commandButtons = $$('.command-btn');
+      const appActionButtons = $$('button').filter(button => !['connectBtn', 'confirmCancel', 'confirmOk'].includes(button.id));
+
+      function pad2(value) { return String(value).padStart(2, '0'); }
+      function bytesToHex(bytes) { return Array.from(bytes, b => b.toString(16).padStart(2, '0').toUpperCase()).join(' '); }
+      function bytesToAscii(bytes) { return textDecoder.decode(bytes); }
+      function concatBytes(...parts) { const total = parts.reduce((n, part) => n + part.length, 0); const result = new Uint8Array(total); let offset = 0; for (const part of parts) { result.set(part, offset); offset += part.length; } return result; }
+      function clamp(value, min, max) { return Math.min(max, Math.max(min, Number(value) || 0)); }
+      function crc16Modbus(bytes) { let crc = 0xFFFF; for (const byte of bytes) { crc ^= byte; for (let bit = 0; bit < 8; bit++) crc = (crc & 1) ? ((crc >> 1) ^ 0xA001) : (crc >> 1); } return crc & 0xFFFF; }
+      function buildFrame(head, boat, data = []) { const body = concatBytes(textEncoder.encode(head), Uint8Array.of(boat), Uint8Array.from(data)); const crc = crc16Modbus(body); return concatBytes(body, Uint8Array.of((crc >> 8) & 0xFF, crc & 0xFF), TAIL); }
+      function int16(lo, hi) { const value = lo | (hi << 8); return (value & 0x8000) ? value - 0x10000 : value; }
+      function isTail(bytes) { return bytes.length >= 5 && TAIL.every((value, index) => bytes[bytes.length - 5 + index] === value); }
+      function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
+      function formatDuration(seconds) { const total = clamp(seconds, 0, 65535); return `${Math.floor(total / 3600)}:${pad2(Math.floor(total / 60) % 60)}:${pad2(total % 60)}`; }
+      function formatLocalDate(date) { return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`; }
+      function formatDeviceDate(star) { return `${star.year}-${pad2(star.month)}-${pad2(star.day)} ${pad2(star.hour)}:${pad2(star.minute)}:${pad2(star.second)}`; }
+      function currentTimeInputValue() { const now = new Date(); return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}T${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`; }
+      function getBoat() { const input = $('#boatNumber'); const value = Math.round(clamp(input.value, 1, 255)); input.value = value; return value; }
+
+      function showToast(message, tone = 'info', detail = '') { const toast = document.createElement('div'); toast.className = 'toast'; toast.dataset.tone = tone; toast.innerHTML = `<strong>${escapeHtml(message)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ''}`; $('#toastRegion').append(toast); setTimeout(() => toast.remove(), 4200); }
+
+      function addLog(direction, bytes, summary, level = 'info') {
+        state.logs.unshift({ direction, bytes: Uint8Array.from(bytes), summary, level, time: new Date() });
+        if (state.logs.length > 1000) state.logs.length = 1000;
+        renderLogs();
+      }
+
+      function renderLogs() {
+        const filter = $('#logFilter').value;
+        const items = state.logs.filter(item => filter === 'all' || (filter === 'error' ? item.level === 'error' : item.direction === filter));
+        $('#logCount').textContent = `${state.logs.length} 条`;
+        const list = $('#logList');
+        if (!items.length) { list.innerHTML = '<div class="empty-state">没有符合条件的通信记录。</div>'; return; }
+        list.innerHTML = items.map(item => `<article class="log-entry" data-direction="${item.direction}" data-level="${item.level}"><div class="log-head"><span class="log-direction ${item.direction}">${item.direction === 'tx' ? 'TX' : 'RX'}</span><time class="log-time">${formatLocalDate(item.time)}</time><span class="log-summary">${escapeHtml(item.summary)}</span></div><code class="log-hex">${bytesToHex(item.bytes)}</code></article>`).join('');
+      }
+
+      function renderDevices(sensorState = 0) {
+        $('#deviceGrid').innerHTML = DEVICES.map(device => `<div class="device" data-on="${Boolean(sensorState & device.bit)}"><span class="device-light" aria-hidden="true"></span><span>${device.name}</span><span class="device-code">${device.code}</span></div>`).join('');
+      }
+
+      function renderHistory() {
+        $('#historyCount').textContent = `${state.statusHistory.length} / 200`;
+        const body = $('#historyBody');
+        if (!state.statusHistory.length) { body.innerHTML = '<tr><td colspan="5"><div class="empty-state">连接后点击“读设备状态”，这里会保留最近 200 条记录。</div></td></tr>'; return; }
+        body.innerHTML = state.statusHistory.slice(0, 8).map(item => `<tr><td>${formatLocalDate(item.receivedAt)}</td><td>${formatDeviceDate(item.star)}</td><td>${item.star.voltage.toFixed(1)} V</td><td>${item.star.ntc1.toFixed(1)} / ${item.star.ntc2.toFixed(1)} / ${item.star.pcb.toFixed(1)} ℃</td><td><code title="${bytesToHex(item.bytes)}">${bytesToHex(item.bytes).slice(0, 32)}…</code></td></tr>`).join('');
+      }
+
+      function updateStatus(star, bytes) {
+        state.latestStatus = star;
+        const receivedAt = new Date();
+        state.statusHistory.unshift({ star, bytes: Uint8Array.from(bytes), receivedAt });
+        if (state.statusHistory.length > 200) state.statusHistory.length = 200;
+        $('#metricTime').textContent = formatDeviceDate(star);
+        $('#metricVoltage').innerHTML = `${star.voltage.toFixed(1)} <span class="metric-unit">V</span>`;
+        $('#metricNtc1').innerHTML = `${star.ntc1.toFixed(1)} <span class="metric-unit">℃</span>`;
+        $('#metricNtc2').innerHTML = `${star.ntc2.toFixed(1)} <span class="metric-unit">℃</span>`;
+        $('#boardTemp').textContent = `电源板温度 ${star.pcb.toFixed(1)} ℃`;
+        $('#sensorSummary').textContent = `${DEVICES.filter(device => star.sensor & device.bit).length} / 8 台设备上电 · 本机接收 ${formatLocalDate(receivedAt)}`;
+        $('#statusBoat').textContent = pad2(star.boat);
+        $('#statusError').textContent = star.errcode.toString(16).padStart(2, '0').toUpperCase();
+        $('#statusAge').textContent = `刚刚收到 · ${formatLocalDate(receivedAt)}`;
+        renderDevices(star.sensor);
+        renderHistory();
+      }
+
+      function renderRules() {
+        $('#rulesBody').innerHTML = state.rules.map((rule, index) => `<tr data-index="${index}"><td class="index-cell">${pad2(index + 1)}</td><td><input class="rule-input" data-field="hour" type="number" min="0" max="23" value="${rule.hour}" aria-label="第 ${index + 1} 条起始时"></td><td><input class="rule-input" data-field="minute" type="number" min="0" max="59" value="${rule.minute}" aria-label="第 ${index + 1} 条起始分"></td><td><input class="rule-input" data-field="second" type="number" min="0" max="59" value="${rule.second}" aria-label="第 ${index + 1} 条起始秒"></td><td><input class="rule-input" data-field="duration" type="number" min="0" max="65535" value="${rule.duration}" aria-label="第 ${index + 1} 条工作时长秒数"></td><td class="rule-duration">${formatDuration(rule.duration)}</td><td><select class="rule-select" data-field="target" aria-label="第 ${index + 1} 条目标设备">${TARGETS.map(([value, label]) => `<option value="${value}" ${value === rule.target ? 'selected' : ''}>${label}</option>`).join('')}</select></td></tr>`).join('');
+      }
+
+      function updateRuleFromInput(event) {
+        const input = event.target.closest('[data-field]');
+        if (!input) return;
+        const row = input.closest('tr');
+        const index = Number(row.dataset.index);
+        const field = input.dataset.field;
+        const limits = { hour: [0, 23], minute: [0, 59], second: [0, 59], duration: [0, 65535] };
+        state.rules[index][field] = field === 'target' ? Number(input.value) : clamp(input.value, ...(limits[field] || [0, 65535]));
+        if (field !== 'target') input.value = state.rules[index][field];
+        const durationCell = $('.rule-duration', row);
+        if (durationCell) durationCell.textContent = formatDuration(state.rules[index].duration);
+        $('#rulesState').textContent = '有未发送修改';
+      }
+
+      function parseStar(bytes) { return { boat: bytes[5], year: bytes[6] | (bytes[7] << 8), month: bytes[8], day: bytes[9], hour: bytes[10], minute: bytes[11], second: bytes[12], voltage: (bytes[13] | (bytes[14] << 8)) / 10, ntc1: int16(bytes[15], bytes[16]) / 10, ntc2: int16(bytes[17], bytes[18]) / 10, pcb: int16(bytes[19], bytes[20]) / 10, sensor: bytes[21], errcode: bytes[22], crc: (bytes[23] << 8) | bytes[24] }; }
+      function parseAck(bytes) { return { type: bytes[4], boat: bytes[5], error: bytes[6], crc: (bytes[7] << 8) | bytes[8] }; }
+      function parseStrategy(bytes) { const rules = []; for (let index = 0; index < 35; index++) { const offset = 5 + index * 6; rules.push({ hour: bytes[offset], minute: bytes[offset + 1], second: bytes[offset + 2], duration: bytes[offset + 3] | (bytes[offset + 4] << 8), target: bytes[offset + 5] }); } return rules; }
+
+      function validateFrame(bytes) {
+        if (!isTail(bytes)) return { ok: false, reason: '帧尾不是 $OVER' };
+        const received = (bytes[bytes.length - 7] << 8) | bytes[bytes.length - 6];
+        const calculated = crc16Modbus(bytes.slice(0, bytes.length - 7));
+        if (received === calculated) return { ok: true, byteOrder: 'BE' };
+        // 当前固件的 packed uint16_t 结构体在小端 MCU 上会把回包 CRC 以低字节在前发出。
+        // 发送仍严格使用协议要求的大端；接收兼容这一实机历史行为，避免丢弃有效状态帧。
+        const receivedLegacy = (bytes[bytes.length - 6] << 8) | bytes[bytes.length - 7];
+        if (receivedLegacy === calculated) return { ok: true, byteOrder: 'LE' };
+        return { ok: false, reason: `CRC 错误：收到 ${received.toString(16).toUpperCase().padStart(4, '0')}，计算 ${calculated.toString(16).toUpperCase().padStart(4, '0')}` };
+      }
+
+      function handleFrame(bytes) {
+        const head = FRAME_SPECS.find(spec => bytesToAscii(bytes.slice(0, spec.head.length)) === spec.head);
+        const validation = validateFrame(bytes);
+        if (!validation.ok) { addLog('rx', bytes, validation.reason, 'error'); showToast('收到无效帧', 'error', validation.reason); return; }
+        if (!head) { addLog('rx', bytes, '未知帧头', 'error'); return; }
+        const crcNote = validation.byteOrder === 'LE' ? ' · 兼容固件 CRC 小端' : '';
+        if (head.head === '$ACK') {
+          const ack = parseAck(bytes); const ok = ack.error === 0; addLog('rx', bytes, (ok ? `$ACK 成功 · 类型 ${ack.type}` : `$ACK 失败 · 错误码 ${ack.error}`) + crcNote, ok ? 'info' : 'error'); showToast(ok ? '设备已确认命令' : '设备拒绝命令', ok ? 'success' : 'error', ok ? `ACK error=0${crcNote}` : `ACK error=${ack.error}`); return;
+        }
+        if (head.head === '$STAR') { const star = parseStar(bytes); addLog('rx', bytes, `$STAR · ${star.voltage.toFixed(1)} V · PCB ${star.pcb.toFixed(1)} ℃${crcNote}`, 'info'); updateStatus(star, bytes); return; }
+        if (head.head === '$STR') { state.rules = parseStrategy(bytes); renderRules(); $('#rulesState').textContent = '已从设备回读'; addLog('rx', bytes, `$STR · 35 条规则已回读${crcNote}`, 'info'); showToast('控制策略回读完成', 'success', `35 条规则已填入表格${crcNote}`); }
+      }
+
+      function findHeader(buffer) {
+        let best = null;
+        for (let offset = 0; offset < buffer.length; offset++) for (const spec of FRAME_SPECS) {
+          const headBytes = textEncoder.encode(spec.head);
+          if (offset + headBytes.length <= buffer.length && headBytes.every((value, index) => buffer[offset + index] === value) && (!best || offset < best.offset)) best = { offset, spec };
+        }
+        return best;
+      }
+
+      function consumeRxBuffer() {
+        while (state.rxBuffer.length) {
+          const found = findHeader(state.rxBuffer);
+          if (!found) { if (state.rxBuffer.length > 240) { addLog('rx', state.rxBuffer, '未找到帧头，丢弃残余字节', 'error'); state.rxBuffer = new Uint8Array(0); } break; }
+          if (found.offset > 0) { addLog('rx', state.rxBuffer.slice(0, found.offset), '帧头前的残余字节', 'error'); state.rxBuffer = state.rxBuffer.slice(found.offset); }
+          if (state.rxBuffer.length < found.spec.length) break;
+          const frame = state.rxBuffer.slice(0, found.spec.length); state.rxBuffer = state.rxBuffer.slice(found.spec.length); handleFrame(frame);
+        }
+      }
+
+      function appendRx(value) { state.rxBuffer = concatBytes(state.rxBuffer, value); clearTimeout(state.rxTimer); state.rxTimer = setTimeout(() => { if (state.rxBuffer.length) { addLog('rx', state.rxBuffer, '接收超时，清理半帧缓冲', 'error'); state.rxBuffer = new Uint8Array(0); } }, 300); consumeRxBuffer(); }
+
+      async function readLoop() {
+        if (!state.port || !state.port.readable || state.readLoopRunning) return;
+        state.readLoopRunning = true;
+        try {
+          while (state.port && state.port.readable) {
+            state.reader = state.port.readable.getReader();
+            try { while (true) { const { value, done } = await state.reader.read(); if (done) break; if (value) appendRx(value); } }
+            catch (error) { if (state.port) addLog('rx', [], `串口读取异常：${error.message}`, 'error'); }
+            finally { state.reader.releaseLock(); state.reader = null; }
+          }
+        } finally { state.readLoopRunning = false; }
+      }
+
+      function setConnected(connected, label = '') { connectionState.dataset.connected = String(connected); $('#connectionLabel').textContent = connected ? '已连接' : '未连接'; $('#portName').textContent = connected ? (label || 'USB 串口') : '选择串口开始'; connectBtn.disabled = connected; appActionButtons.forEach(button => button.disabled = !connected); disconnectBtn.disabled = !connected; }
+
+      async function connectSerial() {
+        if (!('serial' in navigator)) { showToast('当前浏览器不支持 Web Serial', 'error', '请使用 Chrome 或 Edge 89+'); return; }
+        try { state.port = await navigator.serial.requestPort(); await state.port.open({ baudRate: 9600, dataBits: 8, parity: 'none', stopBits: 1, flowControl: 'none' }); const info = state.port.getInfo ? state.port.getInfo() : {}; const label = info.usbVendorId ? `USB ${info.usbVendorId.toString(16).toUpperCase()}` : 'USB 串口'; setConnected(true, label); addLog('tx', [], '串口已打开 · 9600/8N1'); showToast('串口已连接', 'success', '固定参数 9600 / 8N1'); readLoop(); configurePolling(); }
+        catch (error) { state.port = null; setConnected(false); if (error.name !== 'AbortError') showToast('连接失败', 'error', error.message || '无法打开串口'); }
+      }
+
+      async function disconnectSerial() { clearInterval(state.pollTimer); state.pollTimer = null; try { if (state.reader) await state.reader.cancel(); if (state.port) await state.port.close(); } catch (error) { addLog('rx', [], `断开时出现提示：${error.message}`, 'error'); } finally { state.reader = null; state.port = null; state.rxBuffer = new Uint8Array(0); setConnected(false); $('#pollState').textContent = '轮询已关闭'; showToast('串口已断开'); } }
+
+      async function sendBytes(bytes, summary) { if (!state.port || !state.port.writable) { showToast('请先连接串口', 'error'); return false; } const writer = state.port.writable.getWriter(); try { await writer.write(bytes); addLog('tx', bytes, summary); return true; } catch (error) { addLog('tx', bytes, `发送失败：${error.message}`, 'error'); showToast('发送失败', 'error', error.message); return false; } finally { writer.releaseLock(); } }
+      async function sendRead() { await sendBytes(buildFrame('$READ', getBoat()), '$READ · 读取设备状态'); }
+      async function sendGetStrategy() { await sendBytes(buildFrame('$GETSTR', getBoat()), '$GETSTR · 读取控制策略'); }
+      function strategyBytes() { const bytes = new Uint8Array(210); state.rules.forEach((rule, index) => { const offset = index * 6; bytes[offset] = clamp(rule.hour, 0, 23); bytes[offset + 1] = clamp(rule.minute, 0, 59); bytes[offset + 2] = clamp(rule.second, 0, 59); bytes[offset + 3] = clamp(rule.duration, 0, 65535) & 0xFF; bytes[offset + 4] = (clamp(rule.duration, 0, 65535) >> 8) & 0xFF; bytes[offset + 5] = rule.target; }); return bytes; }
+      async function sendStrategy() { const frame = buildFrame('$STR', getBoat(), strategyBytes()); if (await sendBytes(frame, '$STR · 下发 35 条控制策略')) $('#rulesState').textContent = '已发送，等待 ACK'; }
+      async function sendRestart() { await sendBytes(buildFrame('$REST', getBoat()), '$REST · 请求重启板子'); }
+      async function sendTime() { const value = $('#timeInput').value; if (!value) { showToast('请选择目标时间', 'error'); return; } const localDate = new Date(value); if (Number.isNaN(localDate.getTime())) { showToast('时间格式无效', 'error'); return; } const utc = `$BDRMC,${String(localDate.getUTCFullYear()).slice(-2)}-${pad2(localDate.getUTCMonth() + 1)}-${pad2(localDate.getUTCDate())},${pad2(localDate.getUTCHours())}:${pad2(localDate.getUTCMinutes())}:${pad2(localDate.getUTCSeconds())}`; if (await sendBytes(textEncoder.encode(utc), `${utc} · UTC 校时（无应答）`)) showToast('校时指令已发送', 'success', '无应答属正常，请读取设备状态确认'); }
+
+      function configurePolling() { clearInterval(state.pollTimer); state.pollTimer = null; const interval = Number($('#pollSelect').value); if (interval && state.port) { state.pollTimer = setInterval(() => { if (state.port) sendRead(); }, interval); $('#pollState').textContent = `已开启 · 每 ${interval / 1000} 秒`; } else $('#pollState').textContent = '轮询已关闭'; }
+      function openConfirm(title, message, action) { $('#confirmTitle').textContent = title; $('#confirmMessage').textContent = message; state.confirmHandler = action; $('#confirmDialog').showModal(); }
+
+      function onCommand(command) { if (command === 'read') sendRead(); else if (command === 'getstr') sendGetStrategy(); else if (command === 'time') sendTime(); else if (command === 'str') openConfirm('确认下发控制策略？', '这会整表覆盖设备内现有的 35 条规则。请确认表格内容无误。', sendStrategy); else if (command === 'rest') openConfirm('确认重启板子？', '重启不可逆，设备将在约 300 ms 后复位，当前通信会短暂中断。', sendRestart); }
+
+      function resetRules() { state.rules = Array.from({ length: 35 }, () => ({ hour: 0, minute: 0, second: 0, duration: 0, target: 0xFF })); renderRules(); $('#rulesState').textContent = '本地草稿已清空'; }
+      function exportLog() { if (!state.logs.length) { showToast('没有可导出的日志', 'error'); return; } const content = state.logs.slice().reverse().map(item => `[${formatLocalDate(item.time)}] ${item.direction === 'tx' ? 'TX' : 'RX'} ${item.summary}\n${bytesToHex(item.bytes)}`).join('\n\n'); const blob = new Blob([content], { type: 'text/plain;charset=utf-8' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = `dy-lora-log-${new Date().toISOString().slice(0, 10)}.txt`; link.click(); URL.revokeObjectURL(url); }
+
+      function seedDemo() { document.body.classList.add('demo'); const demoStar = Uint8Array.from([0x24,0x53,0x54,0x41,0x52,0x01,0xEA,0x07,0x09,0x15,0x05,0x02,0x2B,0xEE,0x00,0x03,0x01,0x04,0x01,0x25,0x01,0x04,0x00,0x00,0x00,0x24,0x4F,0x56,0x45,0x52]); const body = demoStar.slice(0, 23); const crc = crc16Modbus(body); demoStar[23] = crc >> 8; demoStar[24] = crc & 0xFF; updateStatus(parseStar(demoStar), demoStar); addLog('rx', demoStar, '$STAR · 演示数据 · 23.8 V'); addLog('tx', buildFrame('$READ', 1), '$READ · 演示发送帧'); state.rules[0] = { hour: 6, minute: 30, second: 0, duration: 3600, target: 0x0A }; state.rules[1] = { hour: 18, minute: 0, second: 0, duration: 1800, target: 0x0B }; renderRules(); }
+
+      $('#boatNumber').addEventListener('input', () => { const boat = getBoat(); $('#commandBoat').textContent = pad2(boat); });
+      connectBtn.addEventListener('click', connectSerial);
+      disconnectBtn.addEventListener('click', disconnectSerial);
+      $$('.command-btn').forEach(button => button.addEventListener('click', () => onCommand(button.dataset.command)));
+      $('#pollSelect').addEventListener('change', configurePolling);
+      $('#rulesBody').addEventListener('input', updateRuleFromInput); $('#rulesBody').addEventListener('change', updateRuleFromInput);
+      $('#resetRulesBtn').addEventListener('click', () => openConfirm('恢复空表？', '这会清除当前页面里的本地规则草稿，不会向设备发送任何内容。', resetRules));
+      $('#nowTimeBtn').addEventListener('click', () => { $('#timeInput').value = currentTimeInputValue(); showToast('已填入电脑当前时间', 'success', '发送时会自动换算为 UTC'); });
+      $('#logFilter').addEventListener('change', renderLogs); $('#clearLogBtn').addEventListener('click', () => { state.logs = []; renderLogs(); showToast('通信日志已清空'); }); $('#exportLogBtn').addEventListener('click', exportLog);
+      $('#confirmCancel').addEventListener('click', () => $('#confirmDialog').close()); $('#confirmOk').addEventListener('click', async () => { const handler = state.confirmHandler; $('#confirmDialog').close(); state.confirmHandler = null; if (handler) await handler(); });
+      if ('serial' in navigator && navigator.serial.addEventListener) navigator.serial.addEventListener('disconnect', event => { if (state.port === event.target) disconnectSerial(); });
+
+      $('#timeInput').value = currentTimeInputValue(); $('#commandBoat').textContent = '01'; renderDevices(); renderRules(); renderLogs(); setConnected(false);
+      if (state.demo) seedDemo();
+    })();
+  </script>
+</body>
+</html>
