@@ -175,7 +175,14 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+  /* ⚠ 低功耗改动：PLL 倍频由 x9 改为 x4，主频 72MHz -> 32MHz（HSE 8MHz × 4）
+       目的：运行电流约降一半（约 36mA -> 18mA），配合 tickless idle 进一步降功耗。
+       说明：本芯片（STM32F103）的 PLLMUL 只有整数倍频（x2~x16），不支持 x4.5，
+             故无法精确得到 36MHz，取最接近的 32MHz（比 36MHz 更省电）。
+       LoRa 软串口的微秒延时基于 DWT + SystemCoreClock 换算，降频后自动适配，
+       时序不受影响（详见 docs/低功耗实现说明.md）。
+       ⚠ CubeMX 重新生成代码会覆盖此处，需重新改回 RCC_PLL_MUL4。 */
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -190,7 +197,8 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  /* ⚠ 低功耗改动：主频降到 36MHz 后只需 1 个 Flash 等待周期（0-24MHz 用 0WS，24-48MHz 用 1WS，48-72MHz 用 2WS） */
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
   {
     Error_Handler();
   }
