@@ -98,8 +98,8 @@ void TaskHeartbeat(void *argument)
         {
             last_list_tick = xTaskGetTickCount();               // 记录本次时刻
             vTaskList(task_buf);                                 // 生成任务列表到缓冲区           
-            LOG_INFO("\r\n任务\t状态\t优先级\t剩余栈\t序号\r\n%s\r\n", task_buf);  // 打印
-            LOG_INFO("剩余堆 = %u 字节\r\n", (unsigned) xPortGetFreeHeapSize());
+            LOG_DEBUG("\r\n任务\t状态\t优先级\t剩余栈\t序号\r\n%s\r\n", task_buf);  // 周期任务列表（DEBUG 级）
+            LOG_DEBUG("剩余堆 = %u 字节\r\n", (unsigned) xPortGetFreeHeapSize());
         }
     }
 }

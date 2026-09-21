@@ -103,6 +103,7 @@
     .utc-note { padding: 10px 12px; border: 1px dashed #66522c; border-radius: 5px; color: #d3b36a; background: rgba(104,76,23,.13); font-size: 12px; }
     .table-wrap { min-width: 0; max-width: 100%; max-height: 600px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
     table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    .rules-table { min-width: 1040px; }
     th { position: sticky; top: 0; z-index: 1; padding: 10px 9px; text-align: left; color: var(--muted); background: #18242d; border-bottom: 1px solid var(--line-strong); font: 600 11px var(--mono); letter-spacing: .04em; }
     td { padding: 7px 9px; border-bottom: 1px solid rgba(42,57,69,.64); vertical-align: middle; }
     tr:last-child td { border-bottom: 0; }
@@ -232,7 +233,7 @@
             <div class="panel-head"><div><p class="panel-kicker">strategy / $STR</p><h2 class="panel-title" id="rulesTitle">控制策略 · 35 条</h2><p class="panel-subtitle">未使用条目标记为“无效”，发送时仍会完整凑满 222 字节。</p></div><span class="hint" id="rulesState">本地草稿</span></div>
             <div class="panel-body">
               <div class="table-actions"><p>配置时填写 <strong>开始时间 + 结束时间</strong>；发送时自动换算为协议要求的持续秒数。</p><button class="btn btn-quiet" id="resetRulesBtn" type="button"><span aria-hidden="true">↺</span>恢复空表</button></div>
-              <div class="table-wrap"><table><thead><tr><th>序号</th><th>开始时</th><th>开始分</th><th>开始秒</th><th>结束时</th><th>结束分</th><th>结束秒</th><th>协议持续时间</th><th>目标设备</th></tr></thead><tbody id="rulesBody"></tbody></table></div>
+              <div class="table-wrap"><table class="rules-table"><thead><tr><th>序号</th><th>开始时</th><th>开始分</th><th>开始秒</th><th>结束时</th><th>结束分</th><th>结束秒</th><th>协议持续时间</th><th>目标设备</th></tr></thead><tbody id="rulesBody"></tbody></table></div>
             </div>
           </section>
         </div>

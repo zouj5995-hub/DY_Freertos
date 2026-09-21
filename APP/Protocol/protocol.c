@@ -586,7 +586,7 @@ void protocol_handle_frame(const uint8_t *buf, uint16_t len, proto_channel_t ch)
 
     s_reply_channel = ch;
 
-    LOG_INFO("收到帧：%u 字节，头部=%.8s", (unsigned)len, (const char *)buf);   // 只打印长度与协议头
+    LOG_DEBUG("收到帧：%u 字节，头部=%.8s", (unsigned)len, (const char *)buf);  // 改 DEBUG：避免上位机轮询时刷屏
 
     /*==============================
      *  #2. 遍历协议表匹配协议头
@@ -659,7 +659,7 @@ void protocol_report_state(void)
     proto_pack_star();                                      // 组装状态包
     (void)uart485_send(&huart2, (const uint8_t *)&s_star, PROTO_STAR_LEN);
 
-    LOG_INFO("已上报设备状态包");
+    LOG_DEBUG("已上报设备状态包");
 }
 
 /*******************************************************************************

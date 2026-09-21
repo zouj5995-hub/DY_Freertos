@@ -15,7 +15,7 @@
 
 #define MONITOR_PERIOD_MS 1000  //采集周期（毫秒）
 #define MONITOR_SIMULATE_ENABLE   0     // 0=真实采集，1=模拟数据（测完必须改回 0）
-#define MONITOR_LOG_COUNT 5
+#define MONITOR_LOG_COUNT 30    // 每 30 秒打印一次常规数据（LOG_DEBUG 级，发布版自动过滤）
 /*******************************************************************************
  * 函数名：TaskMonitor
  * 功  能：监控任务主体：每秒采集一次并打印
@@ -76,7 +76,7 @@ void TaskMonitor(void *argument)
             {
                 log_count = 0;
 
-                LOG_INFO("Vx10=%ld Env=%ld Ipc=%ld Pcb=%ld valid=0x%02lX alarm=0x%02lX gate=%u",
+                LOG_DEBUG("Vx10=%ld Env=%ld Ipc=%ld Pcb=%ld valid=0x%02lX alarm=0x%02lX gate=%u",
                          (long)(snapshot.data.voltage * 10.0f),
                          (long)(snapshot.data.temp_env * 10.0f),
                          (long)(snapshot.data.temp_ipc * 10.0f),
