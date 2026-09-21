@@ -476,13 +476,9 @@ static void proto_cmd_set_rules(const uint8_t *buf, uint16_t len)
     }
 
     /*==============================
-     *  #4. 仅失败时才回应答（正常成功不回，省北斗上行额度）
-     *      —— 旧版程序此处完全不回应答，服务器按"无应答即正常"处理
+     *  #4. 应答结果
      *==============================*/
-    if (ok == false)
-    {
-        proto_send_ack(0U, PROTO_ACK_ERROR);                // 异常时才通报，便于排查
-    }
+    proto_send_ack(0U, ok ? PROTO_ACK_OK : PROTO_ACK_ERROR);
 
     LOG_INFO("下发策略处理%s", ok ? "成功" : "失败");
 }
@@ -497,9 +493,12 @@ static void proto_cmd_set_rules(const uint8_t *buf, uint16_t len)
 static void proto_cmd_read_state(const uint8_t *buf, uint16_t len)
 {
     /*==============================
-     *  #1. 只回状态包，不回应答包
-     *      —— 北斗链路上行有额度限制（分钟级），多余的 $ACK 会白白占掉一次机会；
-     *         旧版程序此处也只发 $STAR（帧格式不变，服务器按旧行为适配）
+     *  #1. 回应答
+     *==============================*/
+    proto_send_ack(1U, PROTO_ACK_OK);                       // 控制指令应答
+
+    /*==============================
+     *  #2. 发送状态包
      *==============================*/
     proto_pack_star();                                      // 组装状态包
     proto_reply((const uint8_t *)&s_star, PROTO_STAR_LEN);  // 从收到请求的那条链路回
@@ -532,13 +531,18 @@ static void proto_cmd_get_rules(const uint8_t *buf, uint16_t len)
  * 功  能：处理重启系统请求（$REST）
  * 参  数：buf —— 帧数据；len —— 帧长度
  * 返回值：无
- * 说  明：不回应答包（省北斗上行额度；旧版程序此处也是直接复位、不应答）；
- *         只置重启请求，真正的复位由通信任务执行
+ * 说  明：先回应答并留出时间把应答发出去，再请求重启；
+ *         真正的复位由通信任务在确认应答已发送后执行
  ******************************************************************************/
 static void proto_cmd_restart(const uint8_t *buf, uint16_t len)
 {
     /*==============================
-     *  #1. 置重启请求（不回 $ACK，避免占用北斗上行额度）
+     *  #1. 回应答
+     *==============================*/
+    proto_send_ack(0U, PROTO_ACK_OK);
+
+    /*==============================
+     *  #2. 置重启请求
      *==============================*/
     s_restart_pending = true;                               // 由通信任务执行复位
 
