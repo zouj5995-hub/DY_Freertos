@@ -56,7 +56,14 @@ typedef enum
 #define BOARD_U3_DIR_PIN         GPIO_PIN_15  // USART3 方向脚（PE15）
 #define BOARD_485_DIR_TX_LEVEL   GPIO_PIN_SET // 方向脚为发送时的电平
 
-/* ===== 12V 总控（不参与供电决策，但硬件若仍在回路中须保持接通） ===== */
+/* ===== 12V 总控（12V 组设备供电的必经回路） =====
+ * ⚠ 必须保持常开，不可按需断开：
+ *   LoRa 模块的 5V 供电来自“12V 转出”，而 12V 由“24V 转 12V”的电源模块产生。
+ *   一旦断开 12V 总控，LoRa 模块随即失去 5V 供电 → 上位机随时收不到信息。
+ *   因此本板静态时必须让 24V→12V 电源模块保持工作，其空载损耗是静态功耗的
+ *   必然组成部分（详见 docs/低功耗实现说明.md）。
+ *   若将来硬件改为 LoRa 直接从 24V 取电，才可考虑把下面这项改为按需接通。
+ */
 #define BOARD_MAIN12V_ENABLE     1           // 1=处理总控引脚；0=板上已无总控则跳过
 #define BOARD_MAIN12V_PORT       GPIOE       // 总控继电器端口
 #define BOARD_MAIN12V_PIN        GPIO_PIN_12 // 总控继电器引脚（PE12）
