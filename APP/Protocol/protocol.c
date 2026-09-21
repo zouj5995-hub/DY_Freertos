@@ -502,6 +502,8 @@ static void proto_cmd_read_state(const uint8_t *buf, uint16_t len)
      *==============================*/
     proto_pack_star();                                      // 组装状态包
     proto_reply((const uint8_t *)&s_star, PROTO_STAR_LEN);  // 从收到请求的那条链路回
+
+    LOG_INFO("$READ 应答：已回 $ACK 与 $STAR（%u 字节）", (unsigned)PROTO_STAR_LEN);   // 现场排查用，仅日志
 }
 
 /*******************************************************************************
